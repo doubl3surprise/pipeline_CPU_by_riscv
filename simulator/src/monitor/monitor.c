@@ -92,21 +92,18 @@ static int parse_args(int argc, char *argv[]) {
 
 
 static const uint32_t img [] = {  
-  // 0x000a2083, //      R[x1] = mem[R[x20]]
-  // 0x001a2023, //  mem[R[x20]] = R[x1]
-  // 0x000a2103, //R[x2] = mem[R[x21]]
-  // 0x00100073,  // ebreak (used as nemu_trap)
-  // 0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
-  // 0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
-  // 0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
-  // 0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
-  // 0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
-  // 0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
-  // 0x00008103, //lb x2  0(x1),     R[x2] = mem[x1 + 0]
-  // 0x002182b3, //add x5, x3, x2,   R[x5] = R[x3] + R[x2]
-  0x80000168, // 00 10 87 03 lb      // a4, 0x1(ra)
-  0x8000016c, // 00 07 03 13 addi    // t1, a4, 0x0
-  0x80000174, // 12 73 1c 63 bne     // t1, t2, 0x800002ac
+  0x000a2083, //      R[x1] = mem[R[x20]]
+  0x001a2023, //  mem[R[x20]] = R[x1]
+  0x000a2103, //R[x2] = mem[R[x21]]
+  0x00100073,  // ebreak (used as nemu_trap)
+  0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
+  0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
+  0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
+  0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
+  0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
+  0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
+  0x00008103, //lb x2  0(x1),     R[x2] = mem[x1 + 0]
+  0x002182b3, //add x5, x3, x2,   R[x5] = R[x3] + R[x2]
   0x00100073  // ebreak (used as nemu_trap)
 //0xdeadbeef,  // some data
 };
