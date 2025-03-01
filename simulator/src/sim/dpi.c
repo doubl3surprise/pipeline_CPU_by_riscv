@@ -22,7 +22,7 @@ extern "C" int dpi_mem_read(int addr, int len){
 		return time;
 	}else if(addr >= 0x80000000 && addr <= 0x8fffffff){
 		unsigned int data = pmem_read(addr, len);
-		/// printf("data = %x\n", data);
+		// printf("data = %x\n", data);
 		return data;
 	}else{
 		printf("你将要访问的内存地址是0x%x, 不属于内存地址[0x80000000, 0x8ffffffff], 程序即将出错退出\n", addr);

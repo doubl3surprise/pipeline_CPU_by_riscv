@@ -33,7 +33,7 @@ module write_back_stage(
 	// DPI import
 	import "DPI-C" function void dpi_ebreak	(input int pc);
 	always@ (*) begin
-        if(W_instr == 32'h00100073) begin
+        if (W_instr == 32'h00100073) begin
             dpi_ebreak(0);
         end
     end
@@ -44,13 +44,13 @@ module write_back_stage(
 	assign w_ready_go = 1;
 	assign w_allow_in = ~w_valid || w_ready_go;
 	always@ (posedge clk) begin
-		if(rst) w_valid <= 1'b0;
-		else if(w_allow_in) w_valid <= m_to_w_valid;
+		if (rst) w_valid <= 1'b0;
+		else if (w_allow_in) w_valid <= m_to_w_valid;
 	end
 	
 	// memory_access to write_back register 
 	always@ (posedge clk) begin
-		if(w_allow_in && m_to_w_valid) begin
+		if (w_allow_in && m_to_w_valid) begin
 			W_opcode <= M_opcode;
 			W_rd <= M_rd;
 			W_valE <= M_valE;
@@ -61,7 +61,7 @@ module write_back_stage(
 
 	// signal for cpu interface
 	always@ (posedge clk) begin
-		if(w_allow_in && m_to_w_valid) begin
+		if (w_allow_in && m_to_w_valid) begin
 			W_cur_pc <= M_cur_pc;
             W_instr <= M_instr;
 			W_commit <= M_commit;

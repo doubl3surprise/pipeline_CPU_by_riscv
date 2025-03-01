@@ -1,5 +1,7 @@
 `include "define.v"
-module CPU(
+module CPU #(
+    parameter N = 12
+) (
     // external information
     input wire clk,
     input wire rst,
@@ -12,6 +14,7 @@ module CPU(
     output wire [31:0] commit_pre_pc
 );
     // touch signal
+    wire f_allow_in;
     wire d_allow_in;
     wire f_to_d_valid;
     wire e_allow_in;
@@ -29,6 +32,8 @@ module CPU(
     //branch signal
     wire can_jump;
     wire [31:0] jump_target;
+    wire fact_success;
+    wire [N - 1:0] train_history;
 
     // final pc
     wire [31:0] nw_pc;
@@ -43,6 +48,9 @@ module CPU(
     wire [31:0] f_imm;
     wire [2:0] f_instr_type;
     wire [31:0] f_default_pc;
+    wire f_is_jump_instr;
+    wire f_pred_taken;
+    wire [N - 1:0] f_pred_history;
 
     // decode signal
     wire [31:0] D_pc;
@@ -56,6 +64,9 @@ module CPU(
     wire [31:0] D_default_pc;
     wire [31:0] d_val1;
     wire [31:0] d_val2;
+    wire D_is_jump_instr;
+	wire D_pred_taken;
+	wire [N - 1:0] D_pred_history;
 
     // execute signal
     wire [31:0] E_pc;
@@ -68,6 +79,9 @@ module CPU(
 	wire [31:0] E_imm;
 	wire [4:0] E_rd;
 	wire [31:0] E_default_pc;
+	wire E_is_jump_instr;
+	wire E_pred_taken;
+	wire [N - 1:0] E_pred_history;
 
     // memory_access signal
     wire [31:0] m_valM;
@@ -116,14 +130,11 @@ module CPU(
         .clk(clk),
         .rst(rst),
         
+        .f_allow_in(f_allow_in),
         .d_allow_in(d_allow_in),
         .f_to_d_valid(f_to_d_valid),
 
-        .e_valid(e_valid),
-
         .F_pc(F_pc),
-        .can_jump(can_jump),
-        .jump_target(jump_target),
 
         .f_opcode(f_opcode),
         .f_rd(f_rd),
@@ -133,6 +144,17 @@ module CPU(
         .f_imm(f_imm),
         .f_instr_type(f_instr_type),
         .f_default_pc(f_default_pc),
+
+        .f_is_jump_instr(f_is_jump_instr),
+        .f_pred_taken(f_pred_taken),
+        .f_pred_history(f_pred_history),
+
+        .e_valid(e_valid),
+        .e_is_jump_instr(E_is_jump_instr),
+        .fact_taken(can_jump),
+        .fact_success(fact_success),
+        .train_history(train_history),
+        .fact_pc(jump_target),
 
         .nw_pc(nw_pc),
 
@@ -148,7 +170,8 @@ module CPU(
         .e_allow_in(e_allow_in),
         .d_to_e_valid(d_to_e_valid),
 
-        .can_jump(can_jump),
+        .fact_success(fact_success),
+        .e_is_jump_instr(E_is_jump_instr),
         
         .w_valid(w_valid),
         .W_opcode(W_opcode),
@@ -182,6 +205,10 @@ module CPU(
         .f_imm(f_imm),
         .f_instr_type(f_instr_type),
         .f_default_pc(f_default_pc),
+	    .f_is_jump_instr(f_is_jump_instr),
+
+        .f_pred_taken(f_pred_taken),
+        .f_pred_history(f_pred_history),
 
         .D_pc(D_pc),
         .D_opcode(D_opcode),
@@ -192,6 +219,9 @@ module CPU(
         .D_imm(D_imm),
         .D_instr_type(D_instr_type),
         .D_default_pc(D_default_pc),
+        .D_is_jump_instr(D_is_jump_instr),
+	    .D_pred_taken(D_pred_taken),
+	    .D_pred_history(D_pred_history),
 
         .f_instr(f_instr),
 
@@ -213,8 +243,10 @@ module CPU(
         .e_valid(e_valid),
         
         .e_valE(e_valE),
+
         .can_jump(can_jump),
         .jump_target(jump_target),
+        .fact_success(fact_success),
 
         .D_pc(D_pc),
         .D_instr_type(D_instr_type),
@@ -225,6 +257,9 @@ module CPU(
         .D_imm(D_imm),
         .D_rd(D_rd),
         .D_default_pc(D_default_pc),
+        .D_is_jump_instr(D_is_jump_instr),
+	    .D_pred_taken(D_pred_taken),
+	    .D_pred_history(D_pred_history),
         
         .E_pc(E_pc),
         .E_instr_type(E_instr_type),
@@ -235,6 +270,9 @@ module CPU(
         .E_imm(E_imm),
         .E_rd(E_rd),
         .E_default_pc(E_default_pc),
+        .E_is_jump_instr(E_is_jump_instr),
+	    .E_pred_taken(E_pred_taken),
+	    .E_pred_history(E_pred_history),
 
         .D_cur_pc(D_cur_pc),
         .D_instr(D_instr),
@@ -324,7 +362,7 @@ module CPU(
 
     // write cpu interface
     assign cur_pc = F_pc;
-	assign instr = {31'd0, can_jump};
+	assign instr = W_instr;
 	assign commit = W_commit;
 	assign commit_pc = W_cur_pc;
 	assign commit_pre_pc = W_pred_pc;

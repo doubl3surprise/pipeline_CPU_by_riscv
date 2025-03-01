@@ -1,5 +1,7 @@
 `include "define.v"
-module decode_stage(
+module decode_stage #(
+	parameter N = 12
+) (
     input wire clk,
     input wire rst,
 
@@ -10,7 +12,8 @@ module decode_stage(
     output wire d_to_e_valid,
 
 	// control hazards judge
-	input can_jump,
+	input wire fact_success,
+	input wire e_is_jump_instr,
 	
 	// write_back stage for data harzards and write registers
 	input wire w_valid,
@@ -49,6 +52,9 @@ module decode_stage(
     input wire [31:0] f_imm,
     input wire [2:0] f_instr_type,
     input wire [31:0] f_default_pc,
+	input wire f_is_jump_instr,
+    input wire f_pred_taken,
+    input wire [N - 1:0] f_pred_history,
 
     output reg [31:0] D_pc,
     output reg [6:0] D_opcode,
@@ -59,6 +65,9 @@ module decode_stage(
     output reg [31:0] D_imm,
     output reg [2:0] D_instr_type,
     output reg [31:0] D_default_pc,
+	output reg D_is_jump_instr,
+	output reg D_pred_taken,
+	output reg [N - 1:0] D_pred_history,
 
 	// signal for cpu interface
 	input wire [31:0] f_instr,
@@ -169,15 +178,16 @@ module decode_stage(
     assign d_allow_in = ~d_valid || (d_ready_go && e_allow_in);
 
     always@ (posedge clk) begin
-        if(rst || can_jump) d_valid <= 1'd0;
-        else if(d_allow_in) d_valid <= f_to_d_valid;
+        if (rst) d_valid <= 1'd0;
+		else if (!fact_success && e_is_jump_instr && e_valid) d_valid <= 1'd0;
+        else if (d_allow_in) d_valid <= f_to_d_valid;
     end
 
     assign d_to_e_valid = d_valid && d_ready_go;
 
 	// fetch to decode register update
     always@ (posedge clk) begin
-        if(d_allow_in && f_to_d_valid) begin
+        if (d_allow_in && f_to_d_valid) begin
             D_pc <= F_pc;
 			D_opcode <= f_opcode;
 			D_rd <= f_rd;
@@ -187,12 +197,15 @@ module decode_stage(
 			D_imm <= f_imm;
 			D_instr_type <= f_instr_type;
 			D_default_pc <= f_default_pc;
+			D_is_jump_instr <= f_is_jump_instr;
+			D_pred_taken <= f_pred_taken;
+			D_pred_history <= f_pred_history;
         end
     end
 
 	// cpu interface update
 	always@ (posedge clk) begin
-        if(d_allow_in && f_to_d_valid) begin
+        if (d_allow_in && f_to_d_valid) begin
             D_cur_pc <= F_pc;
     		D_instr <= f_instr;
    			D_commit <= (F_pc >= 32'h80000000 && F_pc <= 32'h87ffffff) ? 1'b1 : 1'b0;

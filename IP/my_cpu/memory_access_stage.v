@@ -44,7 +44,7 @@ module memory_access_stage(
 	wire is_s = (M_opcode == `OP_S);
     wire r_en = is_load;
     wire w_en = is_s;
-    wire [31:0] mem_addr = (is_load | is_s) ? M_valE : 32'd0;
+    wire [31:0] mem_addr = (is_load || is_s) ? M_valE : 32'd0;
 	wire [31:0] wdata = is_s ? M_val2 : 32'd0;
 
    	ram ram_stage(
@@ -61,14 +61,14 @@ module memory_access_stage(
     wire m_ready_go = 1;
     assign m_allow_in = ~m_valid || (m_ready_go && w_allow_in);
     always@ (posedge clk) begin
-        if(rst) m_valid <= 1'b0;
-        else if(m_allow_in) m_valid <= e_to_m_valid;
+        if (rst) m_valid <= 1'b0;
+        else if (m_allow_in) m_valid <= e_to_m_valid;
     end
     assign m_to_w_valid = m_valid && m_ready_go;
     
     // execute to memory_access update
     always@ (posedge clk) begin
-        if(m_allow_in && e_to_m_valid) begin
+        if (m_allow_in && e_to_m_valid) begin
             M_opcode <= E_opcode;
             M_funct <= E_funct;
             M_valE <= e_valE;
@@ -80,7 +80,7 @@ module memory_access_stage(
 
     // signal for cpu interface
     always@ (posedge clk) begin
-        if(m_allow_in && e_to_m_valid) begin
+        if (m_allow_in && e_to_m_valid) begin
             M_cur_pc <= E_cur_pc;
             M_instr <= E_instr;
 			M_commit <= E_commit;

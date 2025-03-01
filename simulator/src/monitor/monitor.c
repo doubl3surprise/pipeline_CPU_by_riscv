@@ -95,15 +95,14 @@ static const uint32_t img [] = {
   0x000a2083, //      R[x1] = mem[R[x20]]
   0x001a2023, //  mem[R[x20]] = R[x1]
   0x000a2103, //R[x2] = mem[R[x21]]
-  0x00100073,  // ebreak (used as nemu_trap)
-  0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
-  0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
-  0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
-  0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
-  0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
-  0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
-  0x00008103, //lb x2  0(x1),     R[x2] = mem[x1 + 0]
-  0x002182b3, //add x5, x3, x2,   R[x5] = R[x3] + R[x2]
+  // 0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
+  // 0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
+  // 0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
+  // 0x00100093,  //addi x1, x0, 1  R[x1] = R[x0] + 1
+  // 0x00200113,  //addi x2, x0, 2  R[x2] = R[x0] + 2
+  // 0x00208193,  //addi x3, x1, 2  R[x3] = R[x1] + 2
+  // 0x00008103, //lb x2  0(x1),     R[x2] = mem[x1 + 0]
+  // 0x002182b3, //add x5, x3, x2,   R[x5] = R[x3] + R[x2]
   0x00100073  // ebreak (used as nemu_trap)
 //0xdeadbeef,  // some data
 };

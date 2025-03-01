@@ -1,5 +1,7 @@
 `include "define.v"
-module execute_stage(
+module execute_stage #(
+	parameter N = 12
+) (
 	input wire clk,
 	input wire rst,
 	
@@ -18,6 +20,7 @@ module execute_stage(
 	// branch signal
 	output wire can_jump,
     output wire [31:0] jump_target,
+	output wire fact_success,
 
 	// decode and exceute register
 	input wire [31:0] D_pc,
@@ -29,6 +32,9 @@ module execute_stage(
 	input wire [31:0] D_imm,
 	input wire [4:0] D_rd,
 	input wire [31:0] D_default_pc,
+	input wire D_is_jump_instr,
+	input wire D_pred_taken,
+	input wire [N - 1:0] D_pred_history,
 	
 	output reg [31:0] E_pc,
 	output reg [2:0] E_instr_type,
@@ -39,6 +45,9 @@ module execute_stage(
 	output reg [31:0] E_imm,
 	output reg [4:0] E_rd,
 	output reg [31:0] E_default_pc,
+	output reg E_is_jump_instr,
+	output reg E_pred_taken,
+	output reg [N - 1:0] E_pred_history,
 
 	// signal for cpu interface
 	input wire [31:0] D_cur_pc,
@@ -94,23 +103,25 @@ module execute_stage(
 		(E_instr_type == `TYPEB && E_funct == `FUNC_BLTU && E_val1 < E_val2) ||
 		(E_instr_type == `TYPEB && E_funct == `FUNC_BGEU && E_val1 >= E_val2) ||
 		(E_instr_type == `TYPEJ) || 
-		(E_opcode == `OP_JALR)) && e_valid;
+		(E_opcode == `OP_JALR)) & e_valid;
 
-    assign jump_target = ((E_opcode == `OP_JAL) ? (e_valE & -1) : e_valE) & {32{e_valid}};
+	assign jump_target = can_jump ? ((E_opcode == `OP_JAL) ? (e_valE & -1) : e_valE) : E_default_pc;
+
+	assign fact_success = E_is_jump_instr && (jump_target == E_pc) & e_valid;
 
 	// pipeline control
     wire e_ready_go = 1;
     assign e_allow_in = ~e_valid || (e_ready_go && m_allow_in);
     always@ (posedge clk) begin
-        if(rst) e_valid <= 1'd0;
-		else if(can_jump) e_valid <= 1'b0;
-        else if(e_allow_in) e_valid <= d_to_e_valid;
+        if (rst) e_valid <= 1'd0;
+		else if (!fact_success && E_is_jump_instr && e_valid) e_valid <= 1'b0;
+        else if (e_allow_in) e_valid <= d_to_e_valid;
     end
     assign e_to_m_valid = e_valid && e_ready_go;
 
     // decode to execute register update
     always@ (posedge clk) begin
-        if(e_allow_in && d_to_e_valid) begin
+        if (e_allow_in && d_to_e_valid) begin
 			E_pc <= D_pc;
             E_instr_type <= D_instr_type;
 			E_opcode <= D_opcode;
@@ -120,6 +131,9 @@ module execute_stage(
 			E_imm <= D_imm;
 			E_rd <= D_rd;
 			E_default_pc <= D_default_pc;
+			E_is_jump_instr <= D_is_jump_instr;
+			E_pred_taken <= D_pred_taken;
+			E_pred_history <= D_pred_history;
         end
 		else begin
 			E_pc <= 32'd0;
@@ -131,12 +145,15 @@ module execute_stage(
 			E_imm <= 32'd0;
 			E_rd <= 5'd0;
 			E_default_pc <= 32'd0;
+			E_is_jump_instr <= 1'd0;
+			E_pred_taken <= 1'd0;
+			E_pred_history <= 12'd0;
 		end
     end
 
 	// cpu interface update
 	always@ (posedge clk) begin
-		if(e_allow_in && d_to_e_valid) begin
+		if (e_allow_in && d_to_e_valid) begin
             E_cur_pc <= D_cur_pc;
 			E_instr <= D_instr;
 			E_commit <= D_commit;

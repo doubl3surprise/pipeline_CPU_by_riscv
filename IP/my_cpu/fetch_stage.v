@@ -1,19 +1,17 @@
 `include "define.v"
-module fetch_stage(
+module fetch_stage # (
+    parameter N = 12
+) (
     input wire clk,
     input wire rst,
     
     // touch signal
+    output f_allow_in,
     input d_allow_in,
     output f_to_d_valid,
     
     // pc signal
     input wire [31:0] F_pc,
-
-    // branch signal
-    input wire e_valid,
-    input wire can_jump,
-    input wire [31:0] jump_target,
 
     // fetch siganl
     output wire [6:0] f_opcode,
@@ -24,6 +22,18 @@ module fetch_stage(
     output wire [31:0] f_imm,
     output wire [2:0] f_instr_type,
     output wire [31:0] f_default_pc,
+
+    // branch pred signal
+    output wire f_is_jump_instr,
+    output wire f_pred_taken,
+    output reg [N - 1:0] f_pred_history,
+
+    input wire e_valid,
+    input wire e_is_jump_instr,
+    input wire fact_taken,
+    input wire fact_success,
+    input reg [N - 1:0] train_history,
+    input wire [31:0] fact_pc,
 
     // update pc value
     output reg [31:0] nw_pc,
@@ -90,7 +100,6 @@ module fetch_stage(
 
     // pipeline control
     reg f_valid;
-    wire f_allow_in;
     wire f_ready_go = 1;
     always@ (posedge clk) begin
         if(rst) f_valid <= 1'b1;
@@ -99,14 +108,67 @@ module fetch_stage(
     assign f_to_d_valid = f_valid && f_ready_go;
     assign f_allow_in = ~f_valid || (f_ready_go && d_allow_in);
 
-    // update pc
     assign f_default_pc = F_pc + 4;
+
+    // branch predictor
+    wire is_jump_instr;
+    wire [31:0] pred_jump_pc;
+    reg [N - 1:0] ghr;
+    reg [1:0] pht [(1 << N) - 1:0];
+    reg [31:0] tat [(1 << N) - 1:0];
+    assign is_jump_instr = (f_instr_type == `TYPEB) || (f_instr_type == `TYPEJ)
+        || (f_opcode == `OP_JALR);
+
+    assign f_is_jump_instr = is_jump_instr;
+
     always@ (posedge clk) begin
-        if(rst) begin
+        if (rst) begin
+            ghr <= 0;
+            for(integer i = 0; i < (1 << N) - 1; i = i + 1) begin
+                pht[i] = 2'b01;
+                tat[i] = 32'h80000000;
+            end
+        end
+        else begin
+            if (e_is_jump_instr && !fact_success) begin
+                ghr <= {train_history[N - 2:0], fact_taken};
+            end
+            else if (is_jump_instr) begin
+                ghr <= {ghr[N - 2:0], f_pred_taken};
+            end
+
+            if (e_is_jump_instr) begin
+                if (fact_taken) begin
+                    pht[train_history ^ fact_pc[N - 1:0]] <= 
+                        (pht[train_history ^ fact_pc[N - 1:0]] == 2'b11) 
+                        ? 2'b11 : pht[train_history ^ fact_pc[N - 1:0]] + 1'b1;
+                end
+                else begin
+                    pht[train_history ^ fact_pc[N - 1:0]] <= 
+                        (pht[train_history ^ fact_pc[N - 1:0]] == 2'b00) 
+                        ? 2'b00 : pht[train_history ^ fact_pc[N - 1:0]] - 1'b1;
+                end
+                tat[fact_pc[N - 1:0]] <= fact_pc;
+            end
+        end 
+    end
+
+    assign f_pred_taken = pht[F_pc[N - 1:0] ^ ghr][1];
+    assign f_pred_history = ghr;
+
+    assign pred_jump_pc = (f_instr_type == `TYPEB && f_imm >= 32'h80000000 && f_imm <= 32'h87fffff) ? (F_pc + f_imm) & -1
+        : (f_instr_type == `TYPEJ && ((F_pc + f_imm) & -1) >= 32'h80000000 && ((F_pc + f_imm) & -1) <= 32'h87fffff) ? (F_pc + f_imm) & -1
+        : (f_opcode == `OP_JALR && f_imm >= tat[F_pc[N - 1:0]] && f_imm <= tat[F_pc[N - 1:0]]) ? tat[F_pc[N - 1:0]] : 32'h80000000;
+
+    always@ (posedge clk) begin
+        if (rst) begin
             nw_pc <= 32'h80000000;
         end
-        else if(f_allow_in) begin
-            nw_pc <= (can_jump && e_valid) ? jump_target : f_default_pc;
+        else if (!fact_success && e_is_jump_instr && e_valid) begin
+            nw_pc <= fact_pc;
+        end
+        else if (f_allow_in) begin
+            nw_pc <= (is_jump_instr && f_pred_taken) ? pred_jump_pc : f_default_pc;
         end
     end
 endmodule
