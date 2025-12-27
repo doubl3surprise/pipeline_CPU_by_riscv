@@ -80,7 +80,6 @@ module fetch_stage # (
     assign is_funct_s = (f_instr_type == `TYPES);
     assign is_funct_b = (f_instr_type == `TYPEB);
 
-    // TO DO : combine situlations
 	assign f_funct = is_funct_r ? {func7, func3} :
         (is_funct_i || is_funct_s || is_funct_b) ?
             (f_opcode == `OP_IMM) && (func3 == 3'b001 || func3 == 3'b101) ? {func7, func3} :

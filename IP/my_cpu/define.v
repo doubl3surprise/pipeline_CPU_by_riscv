@@ -26,6 +26,15 @@
 `define ALUSRA      10'b0100000101
 `define ALUOR       10'b0000000110
 `define ALUAND      10'b0000000111
+// M-extension (multiply / divide)
+`define ALUMUL      10'b0000001000
+`define ALUMULH     10'b0000001001
+`define ALUMULHSU   10'b0000001010
+`define ALUMULHU    10'b0000001011
+`define ALUDIV      10'b0000001100
+`define ALUDIVU     10'b0000001101
+`define ALUREM      10'b0000001110
+`define ALUREMU     10'b0000001111
 // funct
 `define FUNC_BEQ    10'b0000000000
 `define FUNC_BNE    10'b0000000001

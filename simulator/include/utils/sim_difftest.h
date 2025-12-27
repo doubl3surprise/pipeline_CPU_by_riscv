@@ -2,6 +2,7 @@
 //CONFIG_DIFFTEST-Difftest对比机制，默认打开
 //如果想要关闭Difftest功能，就把它注释掉，！！！将代码注释掉，而不是将它的值修改为0！！！
 //如果想要开启Difftest功能，就解开它的注释
+
 #define CONFIG_DIFFTEST 1   //打开Difftest的关键
 
 

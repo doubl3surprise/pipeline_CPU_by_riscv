@@ -3,15 +3,19 @@ module memory_access_stage(
     input wire clk,
     input wire rst,
 
+    // touch signal
     output wire m_allow_in,
     input wire e_to_m_valid,
     input wire w_allow_in,
     output wire m_to_w_valid,
 
+    // stage valid
     output reg m_valid,
 
+    // memory access signal
     output wire [31:0] m_valM,
 
+    // execute to memory_access register
     input wire [6:0] E_opcode,
 	input wire [9:0] E_funct,
 	input wire [31:0] e_valE,
@@ -19,6 +23,7 @@ module memory_access_stage(
 	input wire [4:0] E_rd,
 	input wire [31:0] E_default_pc,
 
+    // signal for memory access to write_back
     output reg [6:0] M_opcode,
 	output reg [9:0] M_funct,
 	output reg [31:0] M_valE,
@@ -26,9 +31,11 @@ module memory_access_stage(
 	output reg [4:0] M_rd,
 	output reg [31:0] M_default_pc,
 	
+    // branch signal
 	input can_jump,
 	input [31:0] jump_target,
 
+    // signal for cpu interface
     input wire [31:0] E_cur_pc,
     input wire [31:0] E_instr,
     input wire E_commit,

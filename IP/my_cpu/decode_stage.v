@@ -102,7 +102,7 @@ module decode_stage #(
 		: (W_opcode == `OP_JAL || W_opcode == `OP_JALR) ? W_default_pc
 		: W_valE;
 
-    access_register_file reg_file(
+	access_register_file reg_file(
 		.clk(clk),
 		.rst(rst),
         .rs1(D_rs1),

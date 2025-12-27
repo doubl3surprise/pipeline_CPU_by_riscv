@@ -50,5 +50,6 @@ module sel_fwd(
 		: (W_opcode == `OP_JAL || W_opcode == `OP_JALR) ? W_default_pc
 		: W_valE)
 		: rval;
+
 endmodule
 	

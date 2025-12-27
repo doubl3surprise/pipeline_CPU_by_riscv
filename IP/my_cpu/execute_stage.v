@@ -80,6 +80,33 @@ module execute_stage #(
     wire [9:0] alu_fun;
 	assign alu_fun = (is_r | is_imm) ? E_funct : `ALUADD;
 
+	// mul (Radix-4 Booth + Wallace tree)
+	wire [63:0] mul_prod;
+	wire mul_a_signed;
+	wire mul_b_signed;
+	assign mul_a_signed = (alu_fun == `ALUMUL) || (alu_fun == `ALUMULH) || (alu_fun == `ALUMULHSU);
+	assign mul_b_signed = (alu_fun == `ALUMUL) || (alu_fun == `ALUMULH);
+
+	booth_wallace_mul u_booth_mul (
+		.a(alu1),
+		.b(alu2),
+		.is_a_sign(mul_a_signed),
+		.is_b_sign(mul_b_signed),
+		.product(mul_prod)
+	);
+
+	// div/rem (combinational long division)
+	wire [31:0] div_quot;
+	wire [31:0] div_rem;
+	div_long u_div (
+		.dividend(alu1),
+		.divisor(alu2),
+		.is_signed((alu_fun == `ALUDIV) || (alu_fun == `ALUREM)),
+		.quot(div_quot),
+		.rem(div_rem)
+	);
+
+	// ALU operation
     always @(*) begin
 		case (alu_fun)
 			`ALUADD  : e_valE = alu1 + alu2;
@@ -92,6 +119,14 @@ module execute_stage #(
 			`ALUSRA  : e_valE = $signed(alu1) >>> alu2[4:0];
 			`ALUOR   : e_valE = alu1 | alu2;
 			`ALUAND  : e_valE = alu1 & alu2;
+			`ALUMUL  : e_valE = mul_prod[31:0];
+			`ALUMULH : e_valE = mul_prod[63:32];
+			`ALUMULHSU: e_valE = mul_prod[63:32];
+			`ALUMULHU: e_valE = mul_prod[63:32];
+			`ALUDIV  : e_valE = div_quot;
+			`ALUDIVU : e_valE = div_quot;
+			`ALUREM  : e_valE = div_rem;
+			`ALUREMU : e_valE = div_rem;
 			default  : e_valE = 0;
 		endcase
 	end
@@ -161,4 +196,4 @@ module execute_stage #(
         end
 	end
 endmodule
-    
+        

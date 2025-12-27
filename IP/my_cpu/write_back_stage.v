@@ -40,7 +40,6 @@ module write_back_stage(
 
 	// write_back function
 	wire w_ready_go;
-	wire w_to_d_valid;
 	assign w_ready_go = 1;
 	assign w_allow_in = ~w_valid || w_ready_go;
 	always@ (posedge clk) begin
