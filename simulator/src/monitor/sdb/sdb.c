@@ -6,6 +6,7 @@
 
 
 static int is_batch_mode = false;
+static uint64_t g_batch_max_commit = UINT64_MAX;
 static int cmd_help(char *args);
 static int cmd_c   (char *args);
 static int cmd_q   (char *args);
@@ -187,9 +188,15 @@ void sdb_set_batch_mode() {
   is_batch_mode = true;
 }
 
+void sdb_set_batch_max_commit(uint64_t n) {
+  g_batch_max_commit = (n == 0) ? UINT64_MAX : n;
+}
+
 void sdb_mainloop() {
   if (is_batch_mode) {
-    cmd_c(NULL);
+    // If user sets a max commit count in batch mode, stop at the limit and print statistics.
+    if (g_batch_max_commit != UINT64_MAX) sim_set_quit_on_limit(1);
+    cpu_exec(g_batch_max_commit);
     return;
   }
   for (char *str; (str = rl_gets()) != NULL; ) {

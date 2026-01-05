@@ -1,6 +1,8 @@
 `include "define.v"
 module decode_stage #(
-	parameter N = 12
+	parameter N = 12,
+	parameter integer RAS_W = 4,
+	parameter integer RAS_DEPTH = 16
 ) (
     input wire clk,
     input wire rst,
@@ -55,6 +57,12 @@ module decode_stage #(
 	input wire f_is_jump_instr,
     input wire f_pred_taken,
     input wire [N - 1:0] f_pred_history,
+    input wire [31:0] f_pred_pc,
+	input wire [RAS_W - 1:0] f_ras_sp,
+    input wire [RAS_DEPTH * 32 - 1:0] f_ras_snapshot,
+    input wire [N - 1:0] f_lht_hist,
+    input wire f_gpred_taken,
+    input wire f_lpred_taken,
 
     output reg [31:0] D_pc,
     output reg [6:0] D_opcode,
@@ -68,6 +76,11 @@ module decode_stage #(
 	output reg D_is_jump_instr,
 	output reg D_pred_taken,
 	output reg [N - 1:0] D_pred_history,
+	output reg [RAS_W - 1:0] D_ras_sp,
+    output reg [RAS_DEPTH * 32 - 1:0] D_ras_snapshot,
+    output reg [N - 1:0] D_lht_hist,
+    output reg D_gpred_taken,
+    output reg D_lpred_taken,
 
 	// signal for cpu interface
 	input wire [31:0] f_instr,
@@ -200,6 +213,11 @@ module decode_stage #(
 			D_is_jump_instr <= f_is_jump_instr;
 			D_pred_taken <= f_pred_taken;
 			D_pred_history <= f_pred_history;
+			D_ras_sp <= f_ras_sp;
+            D_ras_snapshot <= f_ras_snapshot;
+            D_lht_hist <= f_lht_hist;
+            D_gpred_taken <= f_gpred_taken;
+            D_lpred_taken <= f_lpred_taken;
         end
     end
 
@@ -209,7 +227,7 @@ module decode_stage #(
             D_cur_pc <= F_pc;
     		D_instr <= f_instr;
    			D_commit <= (F_pc >= 32'h80000000 && F_pc <= 32'h87ffffff) ? 1'b1 : 1'b0;
-    		D_pred_pc <= f_default_pc;
+    		D_pred_pc <= f_pred_pc;
         end
     end
 	

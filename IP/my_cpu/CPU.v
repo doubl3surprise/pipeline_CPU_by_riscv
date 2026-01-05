@@ -1,6 +1,8 @@
 `include "define.v"
 module CPU #(
-    parameter N = 12
+    parameter N = 12,
+    parameter integer RAS_W = 4,
+    parameter integer RAS_DEPTH = 16
 ) (
     // external information
     input wire clk,
@@ -11,7 +13,8 @@ module CPU #(
     output wire [31:0] instr,
     output wire commit,
     output wire [31:0] commit_pc,
-    output wire [31:0] commit_pre_pc
+    output wire [31:0] commit_pre_pc,
+    output wire [31:0] commit_pred_pc
 );
     // touch signal
     wire f_allow_in;
@@ -33,7 +36,7 @@ module CPU #(
     wire can_jump;
     wire [31:0] jump_target;
     wire fact_success;
-    wire [N - 1:0] train_history;
+    wire [31:0] f_pred_pc;
 
     // final pc
     wire [31:0] nw_pc;
@@ -51,6 +54,11 @@ module CPU #(
     wire f_is_jump_instr;
     wire f_pred_taken;
     wire [N - 1:0] f_pred_history;
+    wire [RAS_W - 1:0] f_ras_sp;
+    wire [RAS_DEPTH * 32 - 1:0] f_ras_snapshot;
+    wire [N - 1:0] f_lht_hist;
+    wire f_gpred_taken;
+    wire f_lpred_taken;
 
     // decode signal
     wire [31:0] D_pc;
@@ -67,6 +75,11 @@ module CPU #(
     wire D_is_jump_instr;
 	wire D_pred_taken;
 	wire [N - 1:0] D_pred_history;
+    wire [RAS_W - 1:0] D_ras_sp;
+    wire [RAS_DEPTH * 32 - 1:0] D_ras_snapshot;
+    wire [N - 1:0] D_lht_hist;
+    wire D_gpred_taken;
+    wire D_lpred_taken;
 
     // execute signal
     wire [31:0] E_pc;
@@ -74,6 +87,9 @@ module CPU #(
 	wire [2:0] E_instr_type;
     wire [6:0] E_opcode;
 	wire [9:0] E_funct;
+    // predictor training helper
+    wire fact_is_cond_br = (E_instr_type == `TYPEB);
+    wire fact_is_jalr = (E_opcode == `OP_JALR);
 	wire [31:0] E_val1;
 	wire [31:0] E_val2;
 	wire [31:0] E_imm;
@@ -82,6 +98,11 @@ module CPU #(
 	wire E_is_jump_instr;
 	wire E_pred_taken;
 	wire [N - 1:0] E_pred_history;
+    wire [RAS_W - 1:0] E_ras_sp;
+    wire [RAS_DEPTH * 32 - 1:0] E_ras_snapshot;
+    wire [N - 1:0] E_lht_hist;
+    wire E_gpred_taken;
+    wire E_lpred_taken;
 
     // memory_access signal
     wire [31:0] m_valM;
@@ -119,14 +140,20 @@ module CPU #(
     wire [31:0] M_instr;
     wire M_commit;
     wire [31:0] M_pred_pc;
+    wire [31:0] M_predicted_pc;
 
     // write_back signal for cpu interface
     wire [31:0] W_cur_pc;
     wire [31:0] W_instr;
     wire W_commit;
     wire [31:0] W_pred_pc;
+    wire [31:0] W_predicted_pc;
 
-    fetch_stage fetch(
+    fetch_stage #(
+        .N(N),
+        .RAS_DEPTH(RAS_DEPTH),
+        .RAS_W(RAS_W)
+    ) fetch(
         .clk(clk),
         .rst(rst),
         
@@ -145,23 +172,41 @@ module CPU #(
         .f_instr_type(f_instr_type),
         .f_default_pc(f_default_pc),
 
-        .f_is_jump_instr(f_is_jump_instr),
-        .f_pred_taken(f_pred_taken),
-        .f_pred_history(f_pred_history),
+        .f_spec_is_jump_instr(f_is_jump_instr),
+        .f_spec_pred_taken(f_pred_taken),
+        .f_spec_ghr_snapshot(f_pred_history),
+        .f_spec_pred_pc(f_pred_pc),
+        .f_spec_ras_sp_next(f_ras_sp),
+        .f_spec_ras_snapshot(f_ras_snapshot),
+        .f_spec_lht_snapshot(f_lht_hist),
+        .f_spec_gshare_taken(f_gpred_taken),
+        .f_spec_local_taken(f_lpred_taken),
 
-        .e_valid(e_valid),
-        .e_is_jump_instr(E_is_jump_instr),
-        .fact_taken(can_jump),
-        .fact_success(fact_success),
-        .train_history(train_history),
-        .fact_pc(jump_target),
+        .e_stage_valid(e_valid),
+        .e_stage_is_jump_instr(E_is_jump_instr),
+        .e_actual_taken(can_jump),
+        .e_pred_correct(fact_success),
+        .e_train_ghr_snapshot(E_pred_history),
+        .e_redirect_pc(jump_target),
+        .e_pc(E_pc),
+        .e_is_cond_br(fact_is_cond_br),
+        .e_is_jalr(fact_is_jalr),
+        .e_train_ras_sp(E_ras_sp),
+        .e_train_ras_snapshot(E_ras_snapshot),
+        .e_train_lht_snapshot(E_lht_hist),
+        .e_train_gshare_taken(E_gpred_taken),
+        .e_train_local_taken(E_lpred_taken),
 
         .nw_pc(nw_pc),
 
         .f_instr(f_instr)
     );
 
-    decode_stage decode(
+    decode_stage #(
+        .N(N),
+        .RAS_W(RAS_W),
+        .RAS_DEPTH(RAS_DEPTH)
+    ) decode(
         .clk(clk),
         .rst(rst),
 
@@ -209,6 +254,12 @@ module CPU #(
 
         .f_pred_taken(f_pred_taken),
         .f_pred_history(f_pred_history),
+        .f_pred_pc(f_pred_pc),
+        .f_ras_sp(f_ras_sp),
+        .f_ras_snapshot(f_ras_snapshot),
+        .f_lht_hist(f_lht_hist),
+        .f_gpred_taken(f_gpred_taken),
+        .f_lpred_taken(f_lpred_taken),
 
         .D_pc(D_pc),
         .D_opcode(D_opcode),
@@ -222,6 +273,11 @@ module CPU #(
         .D_is_jump_instr(D_is_jump_instr),
 	    .D_pred_taken(D_pred_taken),
 	    .D_pred_history(D_pred_history),
+        .D_ras_sp(D_ras_sp),
+        .D_ras_snapshot(D_ras_snapshot),
+        .D_lht_hist(D_lht_hist),
+        .D_gpred_taken(D_gpred_taken),
+        .D_lpred_taken(D_lpred_taken),
 
         .f_instr(f_instr),
 
@@ -231,7 +287,11 @@ module CPU #(
         .D_pred_pc(D_pred_pc)
     );
 
-    execute_stage execute(
+    execute_stage #(
+        .N(N),
+        .RAS_W(RAS_W),
+        .RAS_DEPTH(RAS_DEPTH)
+    ) execute(
         .clk(clk),
         .rst(rst),
 
@@ -260,6 +320,11 @@ module CPU #(
         .D_is_jump_instr(D_is_jump_instr),
 	    .D_pred_taken(D_pred_taken),
 	    .D_pred_history(D_pred_history),
+        .D_ras_sp(D_ras_sp),
+        .D_ras_snapshot(D_ras_snapshot),
+        .D_lht_hist(D_lht_hist),
+        .D_gpred_taken(D_gpred_taken),
+        .D_lpred_taken(D_lpred_taken),
         
         .E_pc(E_pc),
         .E_instr_type(E_instr_type),
@@ -273,6 +338,11 @@ module CPU #(
         .E_is_jump_instr(E_is_jump_instr),
 	    .E_pred_taken(E_pred_taken),
 	    .E_pred_history(E_pred_history),
+        .E_ras_sp(E_ras_sp),
+        .E_ras_snapshot(E_ras_snapshot),
+        .E_lht_hist(E_lht_hist),
+        .E_gpred_taken(E_gpred_taken),
+        .E_lpred_taken(E_lpred_taken),
 
         .D_cur_pc(D_cur_pc),
         .D_instr(D_instr),
@@ -323,7 +393,8 @@ module CPU #(
         .M_cur_pc(M_cur_pc),
         .M_instr(M_instr),
         .M_commit(M_commit),
-        .M_pred_pc(M_pred_pc)
+        .M_pred_pc(M_pred_pc),
+        .M_predicted_pc(M_predicted_pc)
     );
 
     write_back_stage write_back(
@@ -351,11 +422,13 @@ module CPU #(
         .M_instr(M_instr),
         .M_commit(M_commit),
         .M_pred_pc(M_pred_pc),
+        .M_predicted_pc(M_predicted_pc),
 
         .W_cur_pc(W_cur_pc),
         .W_instr(W_instr),
         .W_commit(W_commit),
-        .W_pred_pc(W_pred_pc)
+        .W_pred_pc(W_pred_pc),
+        .W_predicted_pc(W_predicted_pc)
     );
 
     assign F_pc = nw_pc;
@@ -366,4 +439,5 @@ module CPU #(
 	assign commit = W_commit;
 	assign commit_pc = W_cur_pc;
 	assign commit_pre_pc = W_pred_pc;
+    assign commit_pred_pc = W_predicted_pc;
 endmodule

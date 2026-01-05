@@ -10,9 +10,14 @@ void set_sim_state(int state, vaddr_t pc, int halt_ret);
 
 //sdb.c
 void 		sdb_set_batch_mode();
+void        sdb_set_batch_max_commit(uint64_t n);
 void 		sdb_mainloop();
 //cpu.c
 void 		cpu_exec(uint64_t n);
+
+// sim control (sim.c)
+void        sim_set_quit_on_limit(int en);
+void        sim_set_pcpred_report_interval(uint64_t interval);
 
 //cpu.c
 

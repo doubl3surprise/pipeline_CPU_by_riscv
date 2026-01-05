@@ -24,11 +24,13 @@ module write_back_stage(
     input wire [31:0] M_instr,
     input wire M_commit,
     input wire [31:0] M_pred_pc,
+    input wire [31:0] M_predicted_pc,
 
     output reg [31:0] W_cur_pc,
     output reg [31:0] W_instr,
     output reg W_commit,
-    output reg [31:0] W_pred_pc
+    output reg [31:0] W_pred_pc,
+    output reg [31:0] W_predicted_pc
 );
 	// DPI import
 	import "DPI-C" function void dpi_ebreak	(input int pc);
@@ -65,12 +67,14 @@ module write_back_stage(
             W_instr <= M_instr;
 			W_commit <= M_commit;
 			W_pred_pc <= M_pred_pc;
+            W_predicted_pc <= M_predicted_pc;
 		end
 		else begin
 			W_cur_pc <= 32'd0;
             W_instr <= 32'd0;
 			W_commit <= 1'd0;
 			W_pred_pc <= 32'd0;
+            W_predicted_pc <= 32'd0;
 		end
 	end
 endmodule

@@ -1,6 +1,8 @@
 `include "define.v"
 module execute_stage #(
-	parameter N = 12
+	parameter N = 12,
+	parameter integer RAS_W = 4,
+    parameter integer RAS_DEPTH = 16
 ) (
 	input wire clk,
 	input wire rst,
@@ -35,6 +37,11 @@ module execute_stage #(
 	input wire D_is_jump_instr,
 	input wire D_pred_taken,
 	input wire [N - 1:0] D_pred_history,
+	input wire [RAS_W - 1:0] D_ras_sp,
+    input wire [RAS_DEPTH * 32 - 1:0] D_ras_snapshot,
+    input wire [N - 1:0] D_lht_hist,
+    input wire D_gpred_taken,
+    input wire D_lpred_taken,
 	
 	output reg [31:0] E_pc,
 	output reg [2:0] E_instr_type,
@@ -48,6 +55,11 @@ module execute_stage #(
 	output reg E_is_jump_instr,
 	output reg E_pred_taken,
 	output reg [N - 1:0] E_pred_history,
+	output reg [RAS_W - 1:0] E_ras_sp,
+    output reg [RAS_DEPTH * 32 - 1:0] E_ras_snapshot,
+    output reg [N - 1:0] E_lht_hist,
+    output reg E_gpred_taken,
+    output reg E_lpred_taken,
 
 	// signal for cpu interface
 	input wire [31:0] D_cur_pc,
@@ -142,7 +154,8 @@ module execute_stage #(
 
 	assign jump_target = can_jump ? ((E_opcode == `OP_JAL) ? (e_valE & -1) : e_valE) : E_default_pc;
 
-	assign fact_success = E_is_jump_instr && (jump_target == E_pc) & e_valid;
+	// prediction success: predicted next pc equals the resolved next pc
+	assign fact_success = E_is_jump_instr && (jump_target == E_pred_pc) & e_valid;
 
 	// pipeline control
     wire e_ready_go = 1;
@@ -169,6 +182,11 @@ module execute_stage #(
 			E_is_jump_instr <= D_is_jump_instr;
 			E_pred_taken <= D_pred_taken;
 			E_pred_history <= D_pred_history;
+			E_ras_sp <= D_ras_sp;
+            E_ras_snapshot <= D_ras_snapshot;
+            E_lht_hist <= D_lht_hist;
+            E_gpred_taken <= D_gpred_taken;
+            E_lpred_taken <= D_lpred_taken;
         end
 		else begin
 			E_pc <= 32'd0;
@@ -183,6 +201,11 @@ module execute_stage #(
 			E_is_jump_instr <= 1'd0;
 			E_pred_taken <= 1'd0;
 			E_pred_history <= 12'd0;
+			E_ras_sp <= {RAS_W{1'b0}};
+            E_ras_snapshot <= {RAS_DEPTH * 32{1'b0}};
+            E_lht_hist <= {N{1'b0}};
+            E_gpred_taken <= 1'b0;
+            E_lpred_taken <= 1'b0;
 		end
     end
 

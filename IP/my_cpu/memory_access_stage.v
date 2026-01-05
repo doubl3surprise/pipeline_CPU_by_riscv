@@ -44,7 +44,8 @@ module memory_access_stage(
     output reg [31:0] M_cur_pc,
     output reg [31:0] M_instr,
     output reg M_commit,
-    output reg [31:0] M_pred_pc
+    output reg [31:0] M_pred_pc,
+    output reg [31:0] M_predicted_pc
 );
     // memory access function
     wire is_load = (M_opcode == `OP_LOAD);
@@ -91,7 +92,10 @@ module memory_access_stage(
             M_cur_pc <= E_cur_pc;
             M_instr <= E_instr;
 			M_commit <= E_commit;
-			M_pred_pc <= can_jump ? jump_target : E_pred_pc;
+			// M_pred_pc: actual next pc (for difftest)
+			M_pred_pc <= can_jump ? jump_target : E_default_pc;
+            // M_predicted_pc: predicted next pc (for prediction statistics)
+            M_predicted_pc <= E_pred_pc;
         end
     end
 endmodule

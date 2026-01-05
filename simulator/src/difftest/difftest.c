@@ -16,14 +16,17 @@ void (*ref_difftest_raise_intr)(uint64_t NO) = NULL;
 extern CPU_state cpu;
 extern SIMState sim_state;
 
+static bool difftest_inited = false;
 static bool is_skip_ref = false;
 static int skip_dut_nr_inst = 0;
 void difftest_skip_ref() {
+  if (!difftest_inited) return;
   is_skip_ref = true;
   skip_dut_nr_inst = 0;
 }
 
 void difftest_skip_dut(int nr_ref, int nr_dut) {
+  if (!difftest_inited) return;
   skip_dut_nr_inst += nr_dut;
   while (nr_ref -- > 0) {
     ref_difftest_exec(1);
@@ -31,7 +34,11 @@ void difftest_skip_dut(int nr_ref, int nr_dut) {
 }
 
 void init_difftest(char *ref_so_file, long img_size, int port) {
-  assert(ref_so_file != NULL);
+  if (ref_so_file == NULL || ref_so_file[0] == '\0') {
+    Log("Differential testing: %s (no --diff provided)", ANSI_FMT("OFF", ANSI_FG_RED));
+    difftest_inited = false;
+    return;
+  }
   void *handle;
   handle = dlopen(ref_so_file, RTLD_LAZY);
   assert(handle);
@@ -59,6 +66,7 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
   Log("The result of every instruction will be compared with %s. "
       "This will help you a lot for debugging, but also significantly reduce the performance. "
       "If it is not necessary, you can turn it off in menuconfig.", ref_so_file);
+  difftest_inited = true;
 
 }
 
@@ -102,6 +110,7 @@ static void checkregs(CPU_state *ref, vaddr_t pc) {
 
 //difftest_step
 void difftest_step(vaddr_t pc, vaddr_t next_pc) {
+  if (!difftest_inited) return;
   CPU_state ref_r;
   if (skip_dut_nr_inst > 0) {
     ref_difftest_regcpy(&ref_r, DIFFTEST_TO_DUT);
