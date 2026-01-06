@@ -61,6 +61,8 @@ module execute_stage #(
     output reg E_gpred_taken,
     output reg E_lpred_taken,
 
+	output wire [2:0] e_func3_out,
+
 	// signal for cpu interface
 	input wire [31:0] D_cur_pc,
     input wire [31:0] D_instr,
@@ -73,6 +75,51 @@ module execute_stage #(
     output reg [31:0] E_pred_pc
 );
 	// execute function
+    // ==================== CSR / SYSTEM ====================
+    wire is_system = (E_opcode == `OP_SYSTEM);
+    wire [2:0] sys_funct3 = E_instr[14:12];
+    wire [11:0] sys_imm12 = E_instr[31:20];
+    wire [4:0]  sys_rs1   = E_instr[19:15];
+
+    wire csr_inst  = is_system && (sys_funct3 != 3'b000);
+    wire is_ecall  = is_system && (sys_funct3 == 3'b000) && (sys_imm12 == 12'h000);
+    wire is_mret   = is_system && (sys_funct3 == 3'b000) && (sys_imm12 == 12'h302);
+    // ebreak is handled by write_back_stage (dpi_ebreak)
+    wire is_ebreak = is_system && (sys_funct3 == 3'b000) && (sys_imm12 == 12'h001);
+
+    wire csr_is_imm = sys_funct3[2];
+    wire [31:0] csr_src = csr_is_imm ? {27'd0, sys_rs1} : E_val1;
+
+    wire [31:0] csr_rdata;
+    wire [31:0] csr_mtvec;
+    wire [31:0] csr_mepc;
+
+    // retire count: approximate with writeback commit (wired in from CPU top later if needed)
+    wire instret_inc = E_commit && e_valid;
+
+    csr_file u_csr (
+        .clk        (clk),
+        .rst        (rst),
+        .csr_access (csr_inst && e_valid),
+        .csr_funct3 (sys_funct3),
+        .csr_addr   (sys_imm12),
+        .csr_src    (csr_src),
+        .csr_rdata  (csr_rdata),
+        .do_ecall   (is_ecall && e_valid),
+        .do_mret    (is_mret && e_valid),
+        .cur_pc     (E_pc),
+        .mtvec_out  (csr_mtvec),
+        .mepc_out   (csr_mepc),
+        .instret_inc(instret_inc)
+    );
+
+    wire sys_redirect = (is_ecall || is_mret) && e_valid;
+    wire [31:0] sys_target = is_mret ? csr_mepc : csr_mtvec;
+
+	assign e_func3_out = E_funct[2:0];
+
+    // ==================== End CSR / SYSTEM ====================
+
     wire is_b = (E_instr_type == `TYPEB);
     wire is_r = (E_instr_type == `TYPER);
     wire is_u = (E_instr_type == `TYPEU);
@@ -120,39 +167,46 @@ module execute_stage #(
 
 	// ALU operation
     always @(*) begin
-		case (alu_fun)
-			`ALUADD  : e_valE = alu1 + alu2;
-			`ALUSUB  : e_valE = alu1 - alu2;
-			`ALUSLL  : e_valE = alu1 << alu2[4:0];
-			`ALUSLT  : e_valE = ($signed(alu1) < $signed(alu2)) ? 1 : 0;
-			`ALUSLTU : e_valE = (alu1 < alu2) ? 1 : 0;
-			`ALUXOR  : e_valE = alu1 ^ alu2;
-			`ALUSRL  : e_valE = alu1 >> alu2[4:0];
-			`ALUSRA  : e_valE = $signed(alu1) >>> alu2[4:0];
-			`ALUOR   : e_valE = alu1 | alu2;
-			`ALUAND  : e_valE = alu1 & alu2;
-			`ALUMUL  : e_valE = mul_prod[31:0];
-			`ALUMULH : e_valE = mul_prod[63:32];
-			`ALUMULHSU: e_valE = mul_prod[63:32];
-			`ALUMULHU: e_valE = mul_prod[63:32];
-			`ALUDIV  : e_valE = div_quot;
-			`ALUDIVU : e_valE = div_quot;
-			`ALUREM  : e_valE = div_rem;
-			`ALUREMU : e_valE = div_rem;
-			default  : e_valE = 0;
-		endcase
+        if (csr_inst) begin
+            // CSR instructions write old CSR value to rd
+            e_valE = csr_rdata;
+        end else begin
+		    case (alu_fun)
+			    `ALUADD  : e_valE = alu1 + alu2;
+			    `ALUSUB  : e_valE = alu1 - alu2;
+			    `ALUSLL  : e_valE = alu1 << alu2[4:0];
+			    `ALUSLT  : e_valE = ($signed(alu1) < $signed(alu2)) ? 1 : 0;
+			    `ALUSLTU : e_valE = (alu1 < alu2) ? 1 : 0;
+			    `ALUXOR  : e_valE = alu1 ^ alu2;
+			    `ALUSRL  : e_valE = alu1 >> alu2[4:0];
+			    `ALUSRA  : e_valE = $signed(alu1) >>> alu2[4:0];
+			    `ALUOR   : e_valE = alu1 | alu2;
+			    `ALUAND  : e_valE = alu1 & alu2;
+			    `ALUMUL  : e_valE = mul_prod[31:0];
+			    `ALUMULH : e_valE = mul_prod[63:32];
+			    `ALUMULHSU: e_valE = mul_prod[63:32];
+			    `ALUMULHU: e_valE = mul_prod[63:32];
+			    `ALUDIV  : e_valE = div_quot;
+			    `ALUDIVU : e_valE = div_quot;
+			    `ALUREM  : e_valE = div_rem;
+			    `ALUREMU : e_valE = div_rem;
+			    default  : e_valE = 0;
+		    endcase
+        end
 	end
 
-    assign can_jump =((E_instr_type == `TYPEB && E_funct == `FUNC_BEQ && E_val1 == E_val2) ||
+    assign can_jump = sys_redirect ||
+        (((E_instr_type == `TYPEB && E_funct == `FUNC_BEQ && E_val1 == E_val2) ||
 		(E_instr_type == `TYPEB && E_funct == `FUNC_BNE && E_val1 != E_val2) ||
 		(E_instr_type == `TYPEB && E_funct == `FUNC_BLT && $signed(E_val1) < $signed(E_val2)) ||
 		(E_instr_type == `TYPEB && E_funct == `FUNC_BGE && $signed(E_val1) >= $signed(E_val2)) ||
 		(E_instr_type == `TYPEB && E_funct == `FUNC_BLTU && E_val1 < E_val2) ||
 		(E_instr_type == `TYPEB && E_funct == `FUNC_BGEU && E_val1 >= E_val2) ||
 		(E_instr_type == `TYPEJ) || 
-		(E_opcode == `OP_JALR)) & e_valid;
+		(E_opcode == `OP_JALR)) & e_valid);
 
-	assign jump_target = can_jump ? ((E_opcode == `OP_JAL) ? (e_valE & -1) : e_valE) : E_default_pc;
+	assign jump_target = sys_redirect ? sys_target :
+        (can_jump ? ((E_opcode == `OP_JAL) ? (e_valE & -1) : e_valE) : E_default_pc);
 
 	// prediction success: predicted next pc equals the resolved next pc
 	assign fact_success = E_is_jump_instr && (jump_target == E_pred_pc) & e_valid;

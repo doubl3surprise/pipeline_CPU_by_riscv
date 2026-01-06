@@ -114,12 +114,10 @@ void update_cpu_state(){
   memcpy(&cpu.gpr[0], reg_ptr, 4 * 32);
 }
 void npc_single_cycle() {
-  dut.clk = 0;  
-  // printf("make_clk = 0, single_cycle clk = %d, rst = %d, cur_pc = %x, commit = %d, instr = %b, commit_pc = %x, commit_pre_pc = %x\n", dut.clk, dut.rst, dut.cur_pc, dut.commit, dut.instr, dut.commit_pc, dut.commit_pre_pc);
+  dut.clk = 0; 
   dut.eval();   
   IFDEF(CONFIG_NPC_OPEN_SIM,   m_trace->dump(sim_time++));
   dut.clk = 1;  
-  // printf("make_clk = 1, single_cycle clk = %d, rst = %d, cur_pc = %x, commit = %d, instr = %b, commit_pc = %x, commit_pre_pc = %x\n", dut.clk, dut.rst, dut.cur_pc, dut.commit, dut.instr, dut.commit_pc, dut.commit_pre_pc);
   dut.eval();
   IFDEF(CONFIG_NPC_OPEN_SIM,   m_trace->dump(sim_time++));
   clk_count++;
@@ -153,11 +151,8 @@ void execute(uint64_t n){
       break; 
     }
     int cnt = 0;
-    // printf("start clk = %d, rst = %d, cur_pc = %x, commit = %d, instr = %x, default_pc = %x\n", dut.clk, dut.rst, dut.cur_pc, dut.commit, dut.instr, dut.commit_pre_pc);
     while(dut.commit != 1){
       npc_single_cycle();
-      // printf("rotate clk = %d, rst = %d, cur_pc = %x, commit = %d, instr = %x, default_pc = %x\n", dut.clk, dut.rst, dut.cur_pc, dut.commit, dut.instr, dut.commit_pre_pc);
-      if(++cnt > 20) break;
     }
     word_t commit_pc = dut.commit_pc;
     commit_pre_pc = dut.commit_pre_pc;

@@ -108,7 +108,7 @@ module decode_stage #(
     wire w_en = (W_opcode == `OP_LOAD) | (W_opcode == `OP_JAL)
 		| (W_opcode == `OP_JALR) | (W_opcode == `OP_R)
 		| (W_opcode == `OP_IMM) | (W_opcode == `OP_LUI)
-		| (W_opcode == `OP_AUIPC);
+		| (W_opcode == `OP_AUIPC) | (W_opcode == `OP_SYSTEM);
 	
 	wire [31:0] wdata;
 	assign wdata = (W_opcode == `OP_LOAD) ? W_valM
@@ -187,7 +187,9 @@ module decode_stage #(
 
 	// pipeline control
     reg d_valid;
-    wire d_ready_go = ~((E_rd == D_rs1 || E_rd == D_rs2) && (E_opcode == `OP_LOAD) && e_valid);
+    // load-use hazard: only stall if the source is actually used
+    wire d_ready_go = ~((((valid_src1 && (E_rd == D_rs1)) || (valid_src2 && (E_rd == D_rs2))) &&
+                         (E_opcode == `OP_LOAD) && e_valid));
     assign d_allow_in = ~d_valid || (d_ready_go && e_allow_in);
 
     always@ (posedge clk) begin

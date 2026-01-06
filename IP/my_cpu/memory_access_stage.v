@@ -47,18 +47,19 @@ module memory_access_stage(
     output reg [31:0] M_pred_pc,
     output reg [31:0] M_predicted_pc
 );
+
     // memory access function
     wire is_load = (M_opcode == `OP_LOAD);
 	wire is_s = (M_opcode == `OP_S);
-    wire r_en = is_load;
-    wire w_en = is_s;
-    wire [31:0] mem_addr = (is_load || is_s) ? M_valE : 32'd0;
+    wire mem_access = is_load || is_s;
+    wire [31:0] mem_addr = mem_access ? M_valE : 32'd0;
 	wire [31:0] wdata = is_s ? M_val2 : 32'd0;
 
-   	ram ram_stage(
+    ram u_ram(
         .clk(clk),
-        .r_en(r_en),
-        .w_en(w_en),
+        .rst(rst),
+        .r_en(is_load),
+        .w_en(is_s),
         .funct(M_funct),
         .addr(mem_addr),
         .wdata(wdata),
@@ -66,6 +67,7 @@ module memory_access_stage(
     );
 
     // pipeline control
+    // m_ready_go: ready when no memory access, or D-Cache responds
     wire m_ready_go = 1;
     assign m_allow_in = ~m_valid || (m_ready_go && w_allow_in);
     always@ (posedge clk) begin

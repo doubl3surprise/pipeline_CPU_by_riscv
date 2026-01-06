@@ -15,6 +15,7 @@
 `define OP_S        7'b0100011
 `define OP_IMM      7'b0010011
 `define OP_R        7'b0110011
+`define OP_SYSTEM   7'b1110011
 // ALU
 `define ALUADD      10'b0000000000
 `define ALUSUB      10'b0100000000

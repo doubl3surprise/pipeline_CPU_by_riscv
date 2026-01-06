@@ -103,6 +103,8 @@ module CPU #(
     wire [N - 1:0] E_lht_hist;
     wire E_gpred_taken;
     wire E_lpred_taken;
+    wire [2:0] e_func3;
+    wire [31:0] e_imm;
 
     // memory_access signal
     wire [31:0] m_valM;
@@ -196,6 +198,9 @@ module CPU #(
         .e_train_lht_snapshot(E_lht_hist),
         .e_train_gshare_taken(E_gpred_taken),
         .e_train_local_taken(E_lpred_taken),
+
+        .e_func3(e_func3),
+        .e_imm(e_imm),
 
         .nw_pc(nw_pc),
 
@@ -343,6 +348,8 @@ module CPU #(
         .E_lht_hist(E_lht_hist),
         .E_gpred_taken(E_gpred_taken),
         .E_lpred_taken(E_lpred_taken),
+
+        .e_func3_out(e_func3),
 
         .D_cur_pc(D_cur_pc),
         .D_instr(D_instr),

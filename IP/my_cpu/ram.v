@@ -1,5 +1,7 @@
 `include "define.v"
-module ram(input wire clk,
+module ram(
+	input wire clk,
+	input wire rst,
 	input wire r_en,
 	input wire w_en,
 	input wire [9:0] funct,
@@ -9,9 +11,26 @@ module ram(input wire clk,
 );	
 	import "DPI-C" function void dpi_mem_write(input int addr, input int data, int len);
 	import "DPI-C" function int dpi_mem_read (input int addr, input int len);
-	wire [31:0] mem;
-	assign mem = (addr >= 32'h80000000 && addr <= 32'h87ffffff)
-		? dpi_mem_read(addr, 4) : 32'd0;
+
+
+	wire hit;
+	wire [31:0] rdata_from_dcache;
+	dcache u_dcache(
+		.clk(clk),
+		.rst(rst),
+		.r_en(r_en),
+		.r_addr(addr),
+		.hit(hit),
+		.r_data(rdata_from_dcache),
+		.fill_en(r_en && !hit),
+		.fill_addr(addr),
+		.w_en(w_en),
+		.w_addr(addr),
+		.w_data(wdata)
+	);
+
+	wire [31:0] mem = (addr >= 32'h80000000 && addr <= 32'h87ffffff) 
+		? (hit ? rdata_from_dcache : dpi_mem_read(addr, 4)) : 32'd0; 
     wire [31:0] load_word = mem;
     wire [15:0] load_half = mem[15:0];
     wire  [7:0] load_byte = mem[7:0];
