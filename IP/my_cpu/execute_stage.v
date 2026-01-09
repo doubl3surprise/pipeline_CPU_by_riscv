@@ -2,7 +2,8 @@
 module execute_stage #(
 	parameter N = 12,
 	parameter integer RAS_W = 4,
-    parameter integer RAS_DEPTH = 16
+    parameter integer RAS_DEPTH = 16,
+    parameter integer PATH_LEN = 4
 ) (
 	input wire clk,
 	input wire rst,
@@ -39,6 +40,8 @@ module execute_stage #(
 	input wire [N - 1:0] D_pred_history,
 	input wire [RAS_W - 1:0] D_ras_sp,
     input wire [RAS_DEPTH * 32 - 1:0] D_ras_snapshot,
+    input wire [(PATH_LEN - 1) * 32 - 1:0] D_path_snapshot,
+    input wire [31:0] D_hybrid_feature_snapshot,
     input wire [N - 1:0] D_lht_hist,
     input wire D_gpred_taken,
     input wire D_lpred_taken,
@@ -57,6 +60,8 @@ module execute_stage #(
 	output reg [N - 1:0] E_pred_history,
 	output reg [RAS_W - 1:0] E_ras_sp,
     output reg [RAS_DEPTH * 32 - 1:0] E_ras_snapshot,
+    output reg [(PATH_LEN - 1) * 32 - 1:0] E_path_snapshot,
+    output reg [31:0] E_hybrid_feature_snapshot,
     output reg [N - 1:0] E_lht_hist,
     output reg E_gpred_taken,
     output reg E_lpred_taken,
@@ -170,7 +175,8 @@ module execute_stage #(
         if (csr_inst) begin
             // CSR instructions write old CSR value to rd
             e_valE = csr_rdata;
-        end else begin
+        end
+        else begin
 		    case (alu_fun)
 			    `ALUADD  : e_valE = alu1 + alu2;
 			    `ALUSUB  : e_valE = alu1 - alu2;
@@ -215,9 +221,15 @@ module execute_stage #(
     wire e_ready_go = 1;
     assign e_allow_in = ~e_valid || (e_ready_go && m_allow_in);
     always@ (posedge clk) begin
-        if (rst) e_valid <= 1'd0;
-		else if (!fact_success && E_is_jump_instr && e_valid) e_valid <= 1'b0;
-        else if (e_allow_in) e_valid <= d_to_e_valid;
+        if (rst) begin
+            e_valid <= 1'd0;
+        end
+        else if (!fact_success && E_is_jump_instr && e_valid) begin
+            e_valid <= 1'b0;
+        end
+        else if (e_allow_in) begin
+            e_valid <= d_to_e_valid;
+        end
     end
     assign e_to_m_valid = e_valid && e_ready_go;
 
@@ -238,6 +250,8 @@ module execute_stage #(
 			E_pred_history <= D_pred_history;
 			E_ras_sp <= D_ras_sp;
             E_ras_snapshot <= D_ras_snapshot;
+            E_path_snapshot <= D_path_snapshot;
+            E_hybrid_feature_snapshot <= D_hybrid_feature_snapshot;
             E_lht_hist <= D_lht_hist;
             E_gpred_taken <= D_gpred_taken;
             E_lpred_taken <= D_lpred_taken;
@@ -257,6 +271,8 @@ module execute_stage #(
 			E_pred_history <= 12'd0;
 			E_ras_sp <= {RAS_W{1'b0}};
             E_ras_snapshot <= {RAS_DEPTH * 32{1'b0}};
+            E_path_snapshot <= {(PATH_LEN-1)*32{1'b0}};
+            E_hybrid_feature_snapshot <= 32'd0;
             E_lht_hist <= {N{1'b0}};
             E_gpred_taken <= 1'b0;
             E_lpred_taken <= 1'b0;

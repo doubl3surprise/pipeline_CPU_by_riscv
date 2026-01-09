@@ -71,8 +71,12 @@ module memory_access_stage(
     wire m_ready_go = 1;
     assign m_allow_in = ~m_valid || (m_ready_go && w_allow_in);
     always@ (posedge clk) begin
-        if (rst) m_valid <= 1'b0;
-        else if (m_allow_in) m_valid <= e_to_m_valid;
+        if (rst) begin
+            m_valid <= 1'b0;
+        end
+        else if (m_allow_in) begin
+            m_valid <= e_to_m_valid;
+        end
     end
     assign m_to_w_valid = m_valid && m_ready_go;
     

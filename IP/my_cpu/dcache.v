@@ -20,20 +20,20 @@ module dcache (
     parameter OFFSET_BITS = 5;
     parameter TAG_BITS = 32 - SETS_BITS - OFFSET_BITS;
 
-    reg [TAG_BITS-1:0] tag_array [0:(1<<SETS_BITS)-1][0:WAYS-1];
-    reg valid_array [0:(1<<SETS_BITS)-1][0:WAYS-1];
-    reg [31:0] data_array [0:(1<<SETS_BITS)-1][0:WAYS-1];
-    reg lru_array [0:(1<<SETS_BITS)-1];
+    reg [TAG_BITS - 1:0] tag_array [0:(1 << SETS_BITS) - 1][0:WAYS - 1];
+    reg valid_array [0:(1 << SETS_BITS) - 1][0:WAYS - 1];
+    reg [31:0] data_array [0:(1 << SETS_BITS) - 1][0:WAYS - 1];
+    reg lru_array [0:(1 << SETS_BITS) - 1];
 
     wire [1:0] offset = r_addr[1:0];
     wire [31:0] r_addr_1 = {r_addr[31:2], 2'b00};
     wire [31:0] r_addr_2 = r_addr_1 + 32'd4;
     wire need_extra_word = (offset != 2'b00);
 
-    wire [TAG_BITS-1:0] r_tag_1 = r_addr_1[31: OFFSET_BITS + SETS_BITS];
-    wire [TAG_BITS-1:0] r_tag_2 = r_addr_2[31: OFFSET_BITS + SETS_BITS];
-    wire [SETS_BITS-1:0] r_index_1 = r_addr_1[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [SETS_BITS-1:0] r_index_2 = r_addr_2[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] r_tag_1 = r_addr_1[31: OFFSET_BITS + SETS_BITS];
+    wire [TAG_BITS - 1:0] r_tag_2 = r_addr_2[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] r_index_1 = r_addr_1[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [SETS_BITS - 1:0] r_index_2 = r_addr_2[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
 
     wire hit0_1 = valid_array[r_index_1][0] && (tag_array[r_index_1][0] == r_tag_1);
     wire hit0_2 = valid_array[r_index_2][0] && (tag_array[r_index_2][0] == r_tag_2);
@@ -60,10 +60,10 @@ module dcache (
     wire [31:0] w_addr_aligned = {w_addr[31:2], 2'b00};
     wire [1:0] w_offset = w_addr[1:0];
     wire [31:0] w_addr_next = w_addr_aligned + 32'd4;
-    wire [SETS_BITS-1:0] w_index1 = w_addr_aligned[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [TAG_BITS-1:0] w_tag1 = w_addr_aligned[31: OFFSET_BITS + SETS_BITS];
-    wire [SETS_BITS-1:0] w_index2 = w_addr_next[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [TAG_BITS-1:0] w_tag2 = w_addr_next[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] w_index1 = w_addr_aligned[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] w_tag1 = w_addr_aligned[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] w_index2 = w_addr_next[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] w_tag2 = w_addr_next[31: OFFSET_BITS + SETS_BITS];
     
     wire w_hit0_1 = valid_array[w_index1][0] && (tag_array[w_index1][0] == w_tag1);
     wire w_hit0_2 = valid_array[w_index2][0] && (tag_array[w_index2][0] == w_tag2);
@@ -74,17 +74,17 @@ module dcache (
 
     wire [31:0] fill_addr_aligned = {fill_addr[31:2], 2'b00};
     wire [31:0] fill_addr_next = fill_addr_aligned + 32'd4;
-    wire [SETS_BITS-1:0] fill_index1 = fill_addr_aligned[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [TAG_BITS-1:0] fill_tag1 = fill_addr_aligned[31: OFFSET_BITS + SETS_BITS];
-    wire [SETS_BITS-1:0] fill_index2 = fill_addr_next[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [TAG_BITS-1:0] fill_tag2 = fill_addr_next[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] fill_index1 = fill_addr_aligned[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] fill_tag1 = fill_addr_aligned[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] fill_index2 = fill_addr_next[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] fill_tag2 = fill_addr_next[31: OFFSET_BITS + SETS_BITS];
 
     integer i, w;
     reg way;
     reg [31:0] data_tmp;
     always @(posedge clk) begin
         if (rst) begin
-            for (i = 0; i < (1<<SETS_BITS); i = i + 1) begin
+            for (i = 0; i < (1 << SETS_BITS); i = i + 1) begin
                 lru_array[i] <= 1'b0;
                 for (w = 0; w < WAYS; w = w + 1) begin
                     valid_array[i][w] <= 1'b0;
@@ -108,8 +108,12 @@ module dcache (
 
             if (w_en) begin
                 if (w_hit1) begin
-                    if (w_hit1_1) way = 1'b1;
-                    else way = 1'b0;
+                    if (w_hit1_1) begin
+                        way = 1'b1;
+                    end
+                    else begin
+                        way = 1'b0;
+                    end
                     
                     tag_array[w_index1][way] <= w_tag1;
                     valid_array[w_index1][way] <= 1'b1;
@@ -124,8 +128,12 @@ module dcache (
                 end
 
                 if(w_hit2) begin
-                    if (w_hit1_2) way = 1'b1;
-                    else way = 1'b0;
+                    if (w_hit1_2) begin
+                        way = 1'b1;
+                    end
+                    else begin
+                        way = 1'b0;
+                    end
                     
                     tag_array[w_index2][way] <= w_tag2;
                     valid_array[w_index2][way] <= 1'b1;

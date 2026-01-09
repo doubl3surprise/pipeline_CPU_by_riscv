@@ -1,17 +1,17 @@
 module div_long (
-    input  wire [31:0] dividend,
-    input  wire [31:0] divisor,
+    input  wire [31 : 0] dividend,
+    input  wire [31 : 0] divisor,
     input  wire        is_signed,
-    output reg  [31:0] quot,
-    output reg  [31:0] rem
+    output reg  [31 : 0] quot,
+    output reg  [31 : 0] rem
 );
     // combinational long division (unsigned algorithm) with sign handling
     integer i;
-    reg [31:0] a;
-    reg [31:0] b;
+    reg [31 : 0] a;
+    reg [31 : 0] b;
     reg a_neg, b_neg;
-    reg [63:0] r;
-    reg [31:0] q;
+    reg [63 : 0] r;
+    reg [31 : 0] q;
 
     always @(*) begin
         quot = 32'd0;
@@ -31,7 +31,8 @@ module div_long (
                 b_neg = divisor[31];
                 a = a_neg ? (~dividend + 1) : dividend;
                 b = b_neg ? (~divisor + 1) : divisor;
-            end else begin
+            end
+            else begin
                 a_neg = 1'b0; b_neg = 1'b0;
                 a = dividend;
                 b = divisor;
@@ -42,24 +43,27 @@ module div_long (
             for (i = 31; i >= 0; i = i - 1) begin
                 r = r << 1;
                 r[0] = a[i];
-                if (r[63:32] >= b) begin
-                    r[63:32] = r[63:32] - b;
+                if (r[63 : 32] >= b) begin
+                    r[63 : 32] = r[63 : 32] - b;
                     q[i] = 1'b1;
-                end else begin
+                end
+                else begin
                     q[i] = 1'b0;
                 end
             end
 
             if (is_signed && (a_neg ^ b_neg)) begin
                 quot = ~q + 1;
-            end else begin
+            end
+            else begin
                 quot = q;
             end
 
             if (is_signed && a_neg) begin
-                rem = ~r[63:32] + 1;
-            end else begin
-                rem = r[63:32];
+                rem = ~r[63 : 32] + 1;
+            end
+            else begin
+                rem = r[63 : 32];
             end
         end
     end

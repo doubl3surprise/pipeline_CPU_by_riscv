@@ -1,92 +1,86 @@
-`include "define.v"
+// ai_pred.v
+// 兼容旧fetch_stage中使用的 ai_pred 接口：8-bit特征输入，输出prediction/confidence
+// 这里实现为一个小型感知器（全局共享权重）
+module ai_pred #(
+    parameter integer FEAT = 8,
+    parameter integer W_BITS = 8,
+    parameter integer THRESH = 16
+)(
+    input  wire clk,
+    input  wire rst,
 
-module ai_pred (
-    input wire clk,
-    input wire rst,
-    
-    input wire predict_en,
-    input wire [7:0] features, 
-    output wire prediction,
-    output wire signed [10:0] confidence, 
-    
-    input wire train_en,
-    input wire [7:0] train_features,
-    input wire actual_taken
+    input  wire        predict_en,
+    input  wire [FEAT - 1 : 0] features,
+    output wire        prediction,
+    output wire signed [10 : 0] confidence,
+
+    input  wire        train_en,
+    input  wire [FEAT - 1 : 0] train_features,
+    input  wire        actual_taken
 );
-    
-    reg signed [5:0] weights [0:8]; 
-    
-    wire signed [10:0] pred_sum;
-    
-    wire signed [10:0] weighted_feat0 = features[0] ? {{5{weights[0][5]}}, weights[0]} : 11'sd0;
-    wire signed [10:0] weighted_feat1 = features[1] ? {{5{weights[1][5]}}, weights[1]} : 11'sd0;
-    wire signed [10:0] weighted_feat2 = features[2] ? {{5{weights[2][5]}}, weights[2]} : 11'sd0;
-    wire signed [10:0] weighted_feat3 = features[3] ? {{5{weights[3][5]}}, weights[3]} : 11'sd0;
-    wire signed [10:0] weighted_feat4 = features[4] ? {{5{weights[4][5]}}, weights[4]} : 11'sd0;
-    wire signed [10:0] weighted_feat5 = features[5] ? {{5{weights[5][5]}}, weights[5]} : 11'sd0;
-    wire signed [10:0] weighted_feat6 = features[6] ? {{5{weights[6][5]}}, weights[6]} : 11'sd0;
-    wire signed [10:0] weighted_feat7 = features[7] ? {{5{weights[7][5]}}, weights[7]} : 11'sd0;
-    wire signed [10:0] weighted_bias  = {{5{weights[8][5]}}, weights[8]};
-    
-    assign pred_sum = weighted_feat0 + weighted_feat1 + weighted_feat2 + 
-                     weighted_feat3 + weighted_feat4 + weighted_feat5 +
-                     weighted_feat6 + weighted_feat7 + weighted_bias;
-    
-    assign prediction = (pred_sum > 0);
-    assign confidence = pred_sum;
-    
-    reg signed [10:0] train_sum_reg;
-    reg train_pred_reg;
-    
+    reg signed [W_BITS - 1 : 0] w [0 : FEAT - 1];
+    reg signed [W_BITS - 1 : 0] b;
+
     integer i;
+    reg signed [15 : 0] sum;
+    localparam signed [15 : 0] THRESH_S = THRESH[15 : 0];
+
+    function automatic signed [W_BITS - 1 : 0] rand_small;
+        integer r;
+    begin
+        r = $urandom_range(6) - 3;
+        rand_small = $signed(r[W_BITS - 1 : 0]);
+    end
+    endfunction
+
+    always @(*) begin
+        reg signed [23 : 0] acc;
+        // 24bit = (16-W_BITS) + W_BITS + 8
+        acc = {{(16 - W_BITS){b[W_BITS - 1]}}, b, 8'b0};
+        for (i = 0; i < FEAT; i = i + 1) begin
+            if (features[i]) begin
+                acc = acc + {{8{w[i][W_BITS - 1]}}, w[i], 8'b0};
+            end
+        end
+        sum = acc[23 : 8];
+    end
+
+    assign prediction  = (sum > 0);
+    assign confidence  = sum[10 : 0];
+
     always @(posedge clk) begin
         if (rst) begin
-            weights[0] <= -1;   // PC对齐
-            weights[1] <= 0;    // PC变化
-            weights[2] <= +2;   // 最近跳转
-            weights[3] <= -1;   // 跳转变化
-            weights[4] <= -6;   // 是BEQ（重要！）
-            weights[5] <= +7;   // 是BNE（重要！）
-            weights[6] <= -2;   // 向前跳转
-            weights[7] <= +3;   // 短距离跳转
-            weights[8] <= -4;   // 偏置（总体上不跳转更多）
+            b <= '0;
+            for (i = 0; i < FEAT; i = i + 1) begin
+                w[i] <= rand_small();
+            end
         end
         else if (train_en) begin
-            train_sum_reg = 
-                (train_features[0] ? {{5{weights[0][5]}}, weights[0]} : 11'sd0) +
-                (train_features[1] ? {{5{weights[1][5]}}, weights[1]} : 11'sd0) +
-                (train_features[2] ? {{5{weights[2][5]}}, weights[2]} : 11'sd0) +
-                (train_features[3] ? {{5{weights[3][5]}}, weights[3]} : 11'sd0) +
-                (train_features[4] ? {{5{weights[4][5]}}, weights[4]} : 11'sd0) +
-                (train_features[5] ? {{5{weights[5][5]}}, weights[5]} : 11'sd0) +
-                (train_features[6] ? {{5{weights[6][5]}}, weights[6]} : 11'sd0) +
-                (train_features[7] ? {{5{weights[7][5]}}, weights[7]} : 11'sd0) +
-                {{5{weights[8][5]}}, weights[8]};
-            
-            train_pred_reg = (train_sum_reg > 0);
-            
-            if (train_pred_reg != actual_taken) begin
-                for (i = 0; i < 8; i = i+1) begin
-                    if (train_features[i]) begin
-                        if (actual_taken) begin
-                            if (weights[i] < 6'sd26)
-                                weights[i] <= weights[i] + 6'sd2;
-                        end else begin
-                            if (weights[i] > -6'sd26)
-                                weights[i] <= weights[i] - 6'sd2;
-                        end
-                    end
+            // 重算训练输出
+            reg signed [23 : 0] acc;
+            reg signed [15 : 0] out;
+            reg signed [15 : 0] y;
+            reg signed [W_BITS - 1 : 0] y_w;
+            acc = {{(16 - W_BITS){b[W_BITS - 1]}}, b, 8'b0};
+            for (i = 0; i < FEAT; i = i + 1) begin
+                if (train_features[i]) begin
+                    acc = acc + {{8{w[i][W_BITS - 1]}}, w[i], 8'b0};
                 end
-                
-                if (actual_taken) begin
-                    if (weights[8] < 6'sd26)
-                        weights[8] <= weights[8] + 6'sd2;
-                end else begin
-                    if (weights[8] > -6'sd26)
-                        weights[8] <= weights[8] - 6'sd2;
+            end
+            out = acc[23 : 8];
+            y = actual_taken ? 16'sd1 : -16'sd1;
+            y_w = actual_taken ? {{(W_BITS - 1){1'b0}}, 1'b1} : -{{(W_BITS - 1){1'b0}}, 1'b1};
+
+            if (((out > 0) != actual_taken) || ($signed(out) < THRESH_S && $signed(out) > -THRESH_S)) begin
+                b <= b + y_w;
+                for (i = 0; i < FEAT; i = i + 1) begin
+                    if (train_features[i]) begin
+                        w[i] <= w[i] + y_w;
+                    end
                 end
             end
         end
     end
-    
 endmodule
+
+

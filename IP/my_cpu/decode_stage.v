@@ -2,7 +2,8 @@
 module decode_stage #(
 	parameter N = 12,
 	parameter integer RAS_W = 4,
-	parameter integer RAS_DEPTH = 16
+	parameter integer RAS_DEPTH = 16,
+	parameter integer PATH_LEN = 4
 ) (
     input wire clk,
     input wire rst,
@@ -60,6 +61,8 @@ module decode_stage #(
     input wire [31:0] f_pred_pc,
 	input wire [RAS_W - 1:0] f_ras_sp,
     input wire [RAS_DEPTH * 32 - 1:0] f_ras_snapshot,
+    input wire [(PATH_LEN - 1) * 32 - 1:0] f_path_snapshot,
+    input wire [31:0] f_hybrid_feature_snapshot,
     input wire [N - 1:0] f_lht_hist,
     input wire f_gpred_taken,
     input wire f_lpred_taken,
@@ -78,6 +81,8 @@ module decode_stage #(
 	output reg [N - 1:0] D_pred_history,
 	output reg [RAS_W - 1:0] D_ras_sp,
     output reg [RAS_DEPTH * 32 - 1:0] D_ras_snapshot,
+    output reg [(PATH_LEN - 1) * 32 - 1:0] D_path_snapshot,
+    output reg [31:0] D_hybrid_feature_snapshot,
     output reg [N - 1:0] D_lht_hist,
     output reg D_gpred_taken,
     output reg D_lpred_taken,
@@ -193,9 +198,15 @@ module decode_stage #(
     assign d_allow_in = ~d_valid || (d_ready_go && e_allow_in);
 
     always@ (posedge clk) begin
-        if (rst) d_valid <= 1'd0;
-		else if (!fact_success && e_is_jump_instr && e_valid) d_valid <= 1'd0;
-        else if (d_allow_in) d_valid <= f_to_d_valid;
+        if (rst) begin
+            d_valid <= 1'd0;
+        end
+        else if (!fact_success && e_is_jump_instr && e_valid) begin
+            d_valid <= 1'd0;
+        end
+        else if (d_allow_in) begin
+            d_valid <= f_to_d_valid;
+        end
     end
 
     assign d_to_e_valid = d_valid && d_ready_go;
@@ -217,6 +228,8 @@ module decode_stage #(
 			D_pred_history <= f_pred_history;
 			D_ras_sp <= f_ras_sp;
             D_ras_snapshot <= f_ras_snapshot;
+            D_path_snapshot <= f_path_snapshot;
+            D_hybrid_feature_snapshot <= f_hybrid_feature_snapshot;
             D_lht_hist <= f_lht_hist;
             D_gpred_taken <= f_gpred_taken;
             D_lpred_taken <= f_lpred_taken;

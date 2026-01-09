@@ -45,8 +45,12 @@ module write_back_stage(
 	assign w_ready_go = 1;
 	assign w_allow_in = ~w_valid || w_ready_go;
 	always@ (posedge clk) begin
-		if (rst) w_valid <= 1'b0;
-		else if (w_allow_in) w_valid <= m_to_w_valid;
+		if (rst) begin
+			w_valid <= 1'b0;
+		end
+		else if (w_allow_in) begin
+			w_valid <= m_to_w_valid;
+		end
 	end
 	
 	// memory_access to write_back register 

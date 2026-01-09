@@ -44,9 +44,15 @@ module ram(
 
 	always@ (posedge clk) begin
 		if(w_en) begin
-			if(funct == `FUNC_SB) dpi_mem_write(addr, wdata, 1);
-			else if(funct == `FUNC_SH) dpi_mem_write(addr, wdata, 2);
-			else dpi_mem_write(addr, wdata, 4);
+			if (funct == `FUNC_SB) begin
+				dpi_mem_write(addr, wdata, 1);
+			end
+			else if (funct == `FUNC_SH) begin
+				dpi_mem_write(addr, wdata, 2);
+			end
+			else begin
+				dpi_mem_write(addr, wdata, 4);
+			end
 		end
     end
 endmodule

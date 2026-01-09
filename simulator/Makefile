@@ -1,10 +1,19 @@
 TOPNAME :=CPU
-CPU_DIR=$(CPU_HOME)/IP/my_cpu
+#
+# 说明：
+# 原Makefile依赖外部环境变量 CPU_HOME / SIM_HOME。
+# 当这两个变量未设置时，会退化为根目录路径（如 /build、/IP/my_cpu），导致 Permission denied / 找不到文件。
+# 这里给出安全默认值：SIM_HOME=本目录(simulator)，CPU_HOME=工程根目录。
+#
+SIM_HOME ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+CPU_HOME ?= $(abspath $(SIM_HOME)/..)
+
+CPU_DIR := $(CPU_HOME)/IP/my_cpu
 
 
 
 PREFIX_NAME:=npc
-SRC_DIR:=$(SIM_HOME)/src
+SRC_DIR := $(SIM_HOME)/src
 TOPNAME_FLAG = --top-module $(TOPNAME)
 PREFIX_FLAG  = --prefix $(PREFIX_NAME)
 
@@ -17,9 +26,9 @@ VERILATOR_CFLAGS += $(TOPNAME_FLAG)
 VERILATOR_CFLAGS += $(PREFIX_FLAG)
 
 
-BUILD_DIR = $(SIM_HOME)/build
-OBJ_DIR = $(BUILD_DIR)/obj_dir
-BIN = $(BUILD_DIR)/$(TOPNAME)
+BUILD_DIR := $(SIM_HOME)/build
+OBJ_DIR   := $(BUILD_DIR)/obj_dir
+BIN       := $(BUILD_DIR)/$(TOPNAME)
 
 default: $(BIN)
 $(shell mkdir -p $(BUILD_DIR))

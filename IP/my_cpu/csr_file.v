@@ -59,10 +59,10 @@ module csr_file (
     wire is_rs = (op == 3'b010);
     wire is_rc = (op == 3'b011);
 
-    wire [31:0] old = csr_rdata;
-    wire [31:0] new_rw = csr_src;
-    wire [31:0] new_rs = old | csr_src;
-    wire [31:0] new_rc = old & ~csr_src;
+    wire [31 : 0] old = csr_rdata;
+    wire [31 : 0] new_rw = csr_src;
+    wire [31 : 0] new_rs = old | csr_src;
+    wire [31 : 0] new_rc = old & ~csr_src;
 
     wire write_enable =
         csr_access && (
@@ -71,7 +71,7 @@ module csr_file (
             (is_rc && (csr_src != 32'd0))
         );
 
-    wire [31:0] write_data =
+    wire [31 : 0] write_data =
         is_rw ? new_rw :
         is_rs ? new_rs :
         is_rc ? new_rc : old;
@@ -87,20 +87,24 @@ module csr_file (
             mip      <= 32'd0;
             mcycle   <= 64'd0;
             minstret <= 64'd0;
-        end else begin
+        end
+        else begin
             mcycle <= mcycle + 64'd1;
-            if (instret_inc) minstret <= minstret + 64'd1;
+            if (instret_inc) begin
+                minstret <= minstret + 64'd1;
+            end
 
             if (do_ecall) begin
                 mepc   <= cur_pc;
                 mcause <= 32'd11; 
-                mstatus[7]   <= mstatus[3];
-                mstatus[3]   <= 1'b0;
-                mstatus[12:11] <= 2'b11;
-            end else if (do_mret) begin
-                mstatus[3]   <= mstatus[7];
-                mstatus[7]   <= 1'b1;
-                mstatus[12:11] <= 2'b00;
+                mstatus[7] <= mstatus[3];
+                mstatus[3] <= 1'b0;
+                mstatus[12 : 11] <= 2'b11;
+            end
+            else if (do_mret) begin
+                mstatus[3] <= mstatus[7];
+                mstatus[7] <= 1'b1;
+                mstatus[12 : 11] <= 2'b00;
             end
 
             if (write_enable) begin
@@ -112,10 +116,10 @@ module csr_file (
                     12'h341: mepc     <= write_data;
                     12'h342: mcause   <= write_data;
                     12'h344: mip      <= write_data;
-                    12'hC00: mcycle[31:0]   <= write_data;
-                    12'hC80: mcycle[63:32]  <= write_data;
-                    12'hC02: minstret[31:0] <= write_data;
-                    12'hC82: minstret[63:32]<= write_data;
+                    12'hC00: mcycle[31 : 0] <= write_data;
+                    12'hC80: mcycle[63 : 32] <= write_data;
+                    12'hC02: minstret[31 : 0] <= write_data;
+                    12'hC82: minstret[63 : 32] <= write_data;
                     default: ;
                 endcase
             end

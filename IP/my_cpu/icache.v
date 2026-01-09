@@ -20,13 +20,13 @@ module icache(
     parameter OFFSET_BITS = 2;
     parameter TAG_BITS = 32 - SETS_BITS - OFFSET_BITS;
 
-    reg [TAG_BITS-1:0] tag_array [0:(1<<SETS_BITS)-1][0:WAYS-1];
-    reg valid_array [0:(1<<SETS_BITS)-1][0:WAYS-1];
-    reg [31:0] data_array [0:(1<<SETS_BITS)-1][0:WAYS-1];
-    reg lru_array [0:(1<<SETS_BITS)-1];
+    reg [TAG_BITS - 1:0] tag_array [0:(1 << SETS_BITS) - 1][0:WAYS - 1];
+    reg valid_array [0:(1 << SETS_BITS) - 1][0:WAYS - 1];
+    reg [31:0] data_array [0:(1 << SETS_BITS) - 1][0:WAYS - 1];
+    reg lru_array [0:(1 << SETS_BITS) - 1];
 
-    wire [SETS_BITS-1:0] r_index = r_addr[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [TAG_BITS-1:0] r_tag = r_addr[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] r_index = r_addr[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] r_tag = r_addr[31: OFFSET_BITS + SETS_BITS];
 
     wire hit0 = valid_array[r_index][0] && (tag_array[r_index][0] == r_tag);
     wire hit1 = valid_array[r_index][1] && (tag_array[r_index][1] == r_tag);
@@ -36,17 +36,17 @@ module icache(
                     hit1 ? data_array[r_index][1] : 
                     32'd0;
     
-    wire [SETS_BITS-1:0] fill_index = fill_addr[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [TAG_BITS-1:0] fill_tag = fill_addr[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] fill_index = fill_addr[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] fill_tag = fill_addr[31: OFFSET_BITS + SETS_BITS];
 
-    wire [SETS_BITS-1:0] w_index = w_addr[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
-    wire [TAG_BITS-1:0] w_tag = w_addr[31: OFFSET_BITS + SETS_BITS];
+    wire [SETS_BITS - 1:0] w_index = w_addr[OFFSET_BITS + SETS_BITS - 1: OFFSET_BITS];
+    wire [TAG_BITS - 1:0] w_tag = w_addr[31: OFFSET_BITS + SETS_BITS];
 
     integer i, w;
     reg way;
     always @(posedge clk) begin
         if (rst) begin
-            for (i = 0; i < (1<<SETS_BITS); i = i + 1) begin
+            for (i = 0; i < (1 << SETS_BITS); i = i + 1) begin
                 lru_array[i] <= 1'b0;
                 for (w = 0; w < WAYS; w = w + 1) begin
                     valid_array[i][w] <= 1'b0;

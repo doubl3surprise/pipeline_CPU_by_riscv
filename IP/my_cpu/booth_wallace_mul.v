@@ -1,17 +1,17 @@
 module booth_wallace_mul (
-    input  wire [31:0] a,
-    input  wire [31:0] b,
+    input  wire [31 : 0] a,
+    input  wire [31 : 0] b,
     input  wire        is_a_sign,
     input  wire        is_b_sign,
-    output wire [63:0] product
+    output wire [63 : 0] product
 );
     // radix-4 Booth 
-    wire [63:0] a_ext = is_a_sign ? {{32{a[31]}}, a} : {32'd0, a};
-    wire [63:0] b_ext = is_b_sign ? {{32{b[31]}}, b} : {32'd0, b};
-    reg signed [127:0] pp [0:15];
+    wire [63 : 0] a_ext = is_a_sign ? {{32{a[31]}}, a} : {32'd0, a};
+    wire [63 : 0] b_ext = is_b_sign ? {{32{b[31]}}, b} : {32'd0, b};
+    reg signed [127 : 0] pp [0 : 15];
     integer i;
-    reg [2:0] slice;
-    reg signed [127:0] m96;
+    reg [2 : 0] slice;
+    reg signed [127 : 0] m96;
 
     always @(*) begin
         m96 = {{64{a_ext[63]}}, a_ext};
@@ -19,8 +19,9 @@ module booth_wallace_mul (
         for (i = 0; i < 16; i = i + 1) begin
             if (i == 0) begin
                 slice = {b[1], b[0], 1'b0};
-            end else begin
-                slice = {b[2*i+1], b[2*i], b[2*i-1]};
+            end
+            else begin
+                slice = {b[2 * i + 1], b[2 * i], b[2 * i - 1]};
             end
 
             case (slice)
@@ -35,9 +36,9 @@ module booth_wallace_mul (
     end
 
     // Wallace-tree with carry-save adders (CSA)
-    reg signed [127:0] layer [0:31];
-    reg signed [127:0] next_layer [0:31];
-    reg signed [127:0] final_sum;
+    reg signed [127 : 0] layer [0 : 31];
+    reg signed [127 : 0] next_layer [0 : 31];
+    reg signed [127 : 0] final_sum;
     integer n;
     integer j;
 
@@ -77,12 +78,14 @@ module booth_wallace_mul (
 
         if (n == 0) begin
             final_sum = 128'sd0;
-        end else if (n == 1) begin
+        end
+        else if (n == 1) begin
             final_sum = layer[0];
-        end else begin
+        end
+        else begin
             final_sum = layer[0] + layer[1];
         end
     end
 
-    assign product = final_sum[63:0];
+    assign product = final_sum[63 : 0];
 endmodule

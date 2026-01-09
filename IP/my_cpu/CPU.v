@@ -2,7 +2,8 @@
 module CPU #(
     parameter N = 12,
     parameter integer RAS_W = 4,
-    parameter integer RAS_DEPTH = 16
+    parameter integer RAS_DEPTH = 16,
+    parameter integer PATH_LEN = 4
 ) (
     // external information
     input wire clk,
@@ -36,125 +37,132 @@ module CPU #(
     wire can_jump;
     wire [31:0] jump_target;
     wire fact_success;
-    wire [31:0] f_pred_pc;
+    wire [31 : 0] f_pred_pc;
 
     // final pc
-    wire [31:0] nw_pc;
+    wire [31 : 0] nw_pc;
     
     // fetch signal
-    wire [31:0] F_pc;
-    wire [6:0] f_opcode;
-    wire [4:0] f_rd;
-    wire [4:0] f_rs1;
-    wire [4:0] f_rs2;
-    wire [9:0] f_funct;
-    wire [31:0] f_imm;
-    wire [2:0] f_instr_type;
-    wire [31:0] f_default_pc;
+    wire [31 : 0] F_pc;
+    wire [6 : 0] f_opcode;
+    wire [4 : 0] f_rd;
+    wire [4 : 0] f_rs1;
+    wire [4 : 0] f_rs2;
+    wire [9 : 0] f_funct;
+    wire [31 : 0] f_imm;
+    wire [2 : 0] f_instr_type;
+    wire [31 : 0] f_default_pc;
     wire f_is_jump_instr;
     wire f_pred_taken;
-    wire [N - 1:0] f_pred_history;
-    wire [RAS_W - 1:0] f_ras_sp;
-    wire [RAS_DEPTH * 32 - 1:0] f_ras_snapshot;
-    wire [N - 1:0] f_lht_hist;
+    wire [N - 1 : 0] f_pred_history;
+    wire [RAS_W - 1 : 0] f_ras_sp;
+    wire [RAS_DEPTH * 32 - 1 : 0] f_ras_snapshot;
+    wire [(PATH_LEN - 1) * 32 - 1 : 0] f_path_snapshot;
+    wire [31 : 0] f_hybrid_feature_snapshot;
+    wire [N - 1 : 0] f_lht_hist;
     wire f_gpred_taken;
     wire f_lpred_taken;
 
     // decode signal
-    wire [31:0] D_pc;
-    wire [6:0] D_opcode;
-    wire [4:0] D_rd;
-    wire [9:0] D_funct;
-    wire [4:0] D_rs1;
-    wire [4:0] D_rs2;
-    wire [31:0] D_imm;
-    wire [2:0] D_instr_type;
-    wire [31:0] D_default_pc;
-    wire [31:0] d_val1;
-    wire [31:0] d_val2;
+    wire [31 : 0] D_pc;
+    wire [6 : 0] D_opcode;
+    wire [4 : 0] D_rd;
+    wire [9 : 0] D_funct;
+    wire [4 : 0] D_rs1;
+    wire [4 : 0] D_rs2;
+    wire [31 : 0] D_imm;
+    wire [2 : 0] D_instr_type;
+    wire [31 : 0] D_default_pc;
+    wire [31 : 0] d_val1;
+    wire [31 : 0] d_val2;
     wire D_is_jump_instr;
 	wire D_pred_taken;
-	wire [N - 1:0] D_pred_history;
-    wire [RAS_W - 1:0] D_ras_sp;
-    wire [RAS_DEPTH * 32 - 1:0] D_ras_snapshot;
-    wire [N - 1:0] D_lht_hist;
+	wire [N - 1 : 0] D_pred_history;
+    wire [RAS_W - 1 : 0] D_ras_sp;
+    wire [RAS_DEPTH * 32 - 1 : 0] D_ras_snapshot;
+    wire [(PATH_LEN - 1) * 32 - 1 : 0] D_path_snapshot;
+    wire [31 : 0] D_hybrid_feature_snapshot;
+    wire [N - 1 : 0] D_lht_hist;
     wire D_gpred_taken;
     wire D_lpred_taken;
 
     // execute signal
-    wire [31:0] E_pc;
-    wire [31:0] e_valE;
-	wire [2:0] E_instr_type;
-    wire [6:0] E_opcode;
-	wire [9:0] E_funct;
+    wire [31 : 0] E_pc;
+    wire [31 : 0] e_valE;
+	wire [2 : 0] E_instr_type;
+    wire [6 : 0] E_opcode;
+	wire [9 : 0] E_funct;
     // predictor training helper
     wire fact_is_cond_br = (E_instr_type == `TYPEB);
     wire fact_is_jalr = (E_opcode == `OP_JALR);
-	wire [31:0] E_val1;
-	wire [31:0] E_val2;
-	wire [31:0] E_imm;
-	wire [4:0] E_rd;
-	wire [31:0] E_default_pc;
+	wire [31 : 0] E_val1;
+	wire [31 : 0] E_val2;
+	wire [31 : 0] E_imm;
+	wire [4 : 0] E_rd;
+	wire [31 : 0] E_default_pc;
 	wire E_is_jump_instr;
 	wire E_pred_taken;
-	wire [N - 1:0] E_pred_history;
-    wire [RAS_W - 1:0] E_ras_sp;
-    wire [RAS_DEPTH * 32 - 1:0] E_ras_snapshot;
-    wire [N - 1:0] E_lht_hist;
+	wire [N - 1 : 0] E_pred_history;
+    wire [RAS_W - 1 : 0] E_ras_sp;
+    wire [RAS_DEPTH * 32 - 1 : 0] E_ras_snapshot;
+    wire [(PATH_LEN - 1) * 32 - 1 : 0] E_path_snapshot;
+    wire [31 : 0] E_hybrid_feature_snapshot;
+    wire [N - 1 : 0] E_lht_hist;
     wire E_gpred_taken;
     wire E_lpred_taken;
-    wire [2:0] e_func3;
-    wire [31:0] e_imm;
+    wire [2 : 0] e_func3;
+    wire [31 : 0] e_imm;
 
     // memory_access signal
-    wire [31:0] m_valM;
-    wire [6:0] M_opcode;
-	wire [9:0] M_funct;
-	wire [31:0] M_valE;
-	wire [31:0] M_val2;
-	wire [4:0] M_rd;
-	wire [31:0] M_default_pc;
+    wire [31 : 0] m_valM;
+    wire [6 : 0] M_opcode;
+	wire [9 : 0] M_funct;
+	wire [31 : 0] M_valE;
+	wire [31 : 0] M_val2;
+	wire [4 : 0] M_rd;
+	wire [31 : 0] M_default_pc;
 
     // write_back signal
-	wire [6:0] W_opcode;
-	wire [4:0] W_rd;
-	wire [31:0] W_valE;
-	wire [31:0] W_valM;
-	wire [31:0] W_default_pc;
+	wire [6 : 0] W_opcode;
+	wire [4 : 0] W_rd;
+	wire [31 : 0] W_valE;
+	wire [31 : 0] W_valM;
+	wire [31 : 0] W_default_pc;
 
     // fetch signal for cpu interface 
-    wire [31:0] f_instr;
+    wire [31 : 0] f_instr;
 
     // decode signal for cpu interface
-    wire [31:0] D_cur_pc;
-    wire [31:0] D_instr;
+    wire [31 : 0] D_cur_pc;
+    wire [31 : 0] D_instr;
     wire D_commit;
-    wire [31:0] D_pred_pc;
+    wire [31 : 0] D_pred_pc;
 
     // execute signal for cpu interface
-    wire [31:0] E_cur_pc;
-    wire [31:0] E_instr;
+    wire [31 : 0] E_cur_pc;
+    wire [31 : 0] E_instr;
     wire E_commit;
-    wire [31:0] E_pred_pc;
+    wire [31 : 0] E_pred_pc;
 
     // memory_access signal for cpu interface
-    wire [31:0] M_cur_pc;
-    wire [31:0] M_instr;
+    wire [31 : 0] M_cur_pc;
+    wire [31 : 0] M_instr;
     wire M_commit;
-    wire [31:0] M_pred_pc;
-    wire [31:0] M_predicted_pc;
+    wire [31 : 0] M_pred_pc;
+    wire [31 : 0] M_predicted_pc;
 
     // write_back signal for cpu interface
-    wire [31:0] W_cur_pc;
-    wire [31:0] W_instr;
+    wire [31 : 0] W_cur_pc;
+    wire [31 : 0] W_instr;
     wire W_commit;
-    wire [31:0] W_pred_pc;
-    wire [31:0] W_predicted_pc;
+    wire [31 : 0] W_pred_pc;
+    wire [31 : 0] W_predicted_pc;
 
     fetch_stage #(
         .N(N),
         .RAS_DEPTH(RAS_DEPTH),
-        .RAS_W(RAS_W)
+        .RAS_W(RAS_W),
+        .PATH_LEN(PATH_LEN)
     ) fetch(
         .clk(clk),
         .rst(rst),
@@ -183,6 +191,8 @@ module CPU #(
         .f_spec_lht_snapshot(f_lht_hist),
         .f_spec_gshare_taken(f_gpred_taken),
         .f_spec_local_taken(f_lpred_taken),
+        .f_spec_path_snapshot(f_path_snapshot),
+        .f_spec_hybrid_feature_snapshot(f_hybrid_feature_snapshot),
 
         .e_stage_valid(e_valid),
         .e_stage_is_jump_instr(E_is_jump_instr),
@@ -198,6 +208,8 @@ module CPU #(
         .e_train_lht_snapshot(E_lht_hist),
         .e_train_gshare_taken(E_gpred_taken),
         .e_train_local_taken(E_lpred_taken),
+        .e_train_path_snapshot(E_path_snapshot),
+        .e_train_hybrid_feature_snapshot(E_hybrid_feature_snapshot),
 
         .e_func3(e_func3),
         .e_imm(e_imm),
@@ -210,7 +222,8 @@ module CPU #(
     decode_stage #(
         .N(N),
         .RAS_W(RAS_W),
-        .RAS_DEPTH(RAS_DEPTH)
+        .RAS_DEPTH(RAS_DEPTH),
+        .PATH_LEN(PATH_LEN)
     ) decode(
         .clk(clk),
         .rst(rst),
@@ -262,6 +275,8 @@ module CPU #(
         .f_pred_pc(f_pred_pc),
         .f_ras_sp(f_ras_sp),
         .f_ras_snapshot(f_ras_snapshot),
+        .f_path_snapshot(f_path_snapshot),
+        .f_hybrid_feature_snapshot(f_hybrid_feature_snapshot),
         .f_lht_hist(f_lht_hist),
         .f_gpred_taken(f_gpred_taken),
         .f_lpred_taken(f_lpred_taken),
@@ -280,6 +295,8 @@ module CPU #(
 	    .D_pred_history(D_pred_history),
         .D_ras_sp(D_ras_sp),
         .D_ras_snapshot(D_ras_snapshot),
+        .D_path_snapshot(D_path_snapshot),
+        .D_hybrid_feature_snapshot(D_hybrid_feature_snapshot),
         .D_lht_hist(D_lht_hist),
         .D_gpred_taken(D_gpred_taken),
         .D_lpred_taken(D_lpred_taken),
@@ -295,7 +312,8 @@ module CPU #(
     execute_stage #(
         .N(N),
         .RAS_W(RAS_W),
-        .RAS_DEPTH(RAS_DEPTH)
+        .RAS_DEPTH(RAS_DEPTH),
+        .PATH_LEN(PATH_LEN)
     ) execute(
         .clk(clk),
         .rst(rst),
@@ -327,6 +345,8 @@ module CPU #(
 	    .D_pred_history(D_pred_history),
         .D_ras_sp(D_ras_sp),
         .D_ras_snapshot(D_ras_snapshot),
+        .D_path_snapshot(D_path_snapshot),
+        .D_hybrid_feature_snapshot(D_hybrid_feature_snapshot),
         .D_lht_hist(D_lht_hist),
         .D_gpred_taken(D_gpred_taken),
         .D_lpred_taken(D_lpred_taken),
@@ -345,6 +365,8 @@ module CPU #(
 	    .E_pred_history(E_pred_history),
         .E_ras_sp(E_ras_sp),
         .E_ras_snapshot(E_ras_snapshot),
+        .E_path_snapshot(E_path_snapshot),
+        .E_hybrid_feature_snapshot(E_hybrid_feature_snapshot),
         .E_lht_hist(E_lht_hist),
         .E_gpred_taken(E_gpred_taken),
         .E_lpred_taken(E_lpred_taken),
